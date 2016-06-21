@@ -50,7 +50,11 @@ matrix:
     - os: osx
       env: TEST_PYTHON="1"
     - os: linux
+      env: CUSTOM_JDK="openjdk7" MAVEN_OVERRIDE="-DforkCount=0"
+    # Python SDK environments.
+    - os: osx
       env: TEST_PYTHON="1"
+    - os: linux
 
 before_install:
   - echo "MAVEN_OPTS='-Xmx1024m -XX:MaxPermSize=512m'" > ~/.mavenrc
