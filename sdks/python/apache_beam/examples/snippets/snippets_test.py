@@ -367,6 +367,12 @@ class SnippetsTest(unittest.TestCase):
         self.get_output(result_path),
         ['cba', 'fed', 'ihg', 'lkj', 'onm', 'rqp', 'uts', 'xwv', 'zy'])
 
+  def test_model_custom_source(self):
+    snippets.model_custom_source()
+
+  def test_model_custom_sink(self):
+    snippets.model_custom_sink()
+
   def test_model_textio(self):
     temp_path = self.create_temp_file('aa bb cc\n bb cc\n cc')
     result_path = temp_path + '.result'
