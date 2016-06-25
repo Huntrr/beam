@@ -606,6 +606,172 @@ def examples_wordcount_debugging(renames):
   p.run()
 
 
+def model_custom_source():
+  import apache_beam as beam
+  from apache_beam.io import iobase
+  from apache_beam.utils.options import PipelineOptions
+  from apache_beam.io.range_trackers import OffsetRangeTracker
+
+  import logging
+
+  p = beam.Pipeline(options=PipelineOptions())
+
+  class CountingSource(iobase.BoundedSource):
+
+    def __init__(self, count):
+      self._count = count
+
+    def estimate_size(self):
+      return self._count
+
+    def get_range_tracker(self, start_position, stop_position):
+      if start_position is None:
+        start_position = 0
+      if stop_position is None:
+        stop_position = self._count
+
+      return OffsetRangeTracker(start_position, stop_position)
+
+    def read(self, range_tracker):
+      for i in range(self._count):
+        if not range_tracker.try_claim(i):
+          return
+        yield i
+
+    def split(self, desired_bundle_size, start_position=None,
+              stop_position=None):
+      if start_position is None:
+        start_position = 0
+      if stop_position is None:
+        stop_position = self._count
+
+      bundle_start = start_position
+      while bundle_start < self._count:
+        bundle_stop = max(self._count, bundle_start + desired_bundle_size)
+        yield iobase.SourceBundle(weight=(bundle_stop - bundle_start),
+                           source=self,
+                           start_position=bundle_start,
+                           stop_position=bundle_stop)
+        bundle_start = bundle_stop
+
+  numbers = p | beam.io.Read('ProduceNumbers', CountingSource(100))
+  lines = numbers | beam.core.Map(lambda number : 'line %d' % number)
+  lines | beam.core.Map(lambda line : logging.info(line))
+  beam.assert_that(
+      lines, beam.equal_to(['line ' + str(number) for number in range(0, 100)]))
+
+  p.run()
+
+def model_custom_sink():
+  import logging
+  import uuid
+
+  # logging.info('*********************** start')
+
+  class SimpleKV(object):
+
+    connected = False
+    issued_token = None
+    table_data = {}
+
+    def connect(self, url):
+      # logging.info('******************** connecting')
+      assert not SimpleKV.connected
+      # SimpleKV.connected = True
+      # SimpleKV.issued_token = str(uuid.uuid4())
+      # return SimpleKV.issued_token
+      return ""
+      # pass
+
+    def open_table(self, access_token, table_name):
+      # assert SimpleKV.connected
+      # assert SimpleKV.issued_token == access_token
+      # assert not table_name in SimpleKV.table_data
+      # SimpleKV.table_data[table_name] = {}
+
+      pass
+
+    def write_to_table(self, access_token, table_name, key, value):
+      # assert table_name in SimpleKV.table_data
+      # SimpleKV.table_data[table_name][key] = value
+
+      pass
+
+    def rename_table(self, access_token, old_name, new_name):
+      # assert old_name in SimpleKV.table_data
+      # data = SimpleKV.table_data[old_name]
+      # SimpleKV.table_data[new_name] = SimpleKV.table_data.pop(old_name)
+
+      pass
+
+  simplekv = SimpleKV()
+
+  # Consider a key-value storage named 'simplekv' with following API
+  #
+  # simplekv.connect(url) - connects to the storage and returns an access token which
+  # can be used to perform further operations
+  # simplekv.open_table(access_token, table_name) - creates a table named
+  # 'table_name'. Returns a table object.
+  # simplekv.write_to_table(table, key, value) - writes a key, value pair to the given
+  #  table.
+  # simplekv.rename_table(access_token, old_name, new_name) - renames the table named
+  # 'old_name' to 'new_name'.
+
+  import apache_beam as beam
+  from apache_beam.io import iobase
+  from apache_beam.utils.options import PipelineOptions
+  import apache_beam as beam
+  from apache_beam.io import iobase
+  from apache_beam.utils.options import PipelineOptions
+  from apache_beam.io.range_trackers import OffsetRangeTracker
+
+  class SimpleKVSink(iobase.Sink):
+
+    def __init__(self, url, final_table_name):
+      self._url = url
+      self._final_table_name = final_table_name
+
+    def initialize_write(self):
+      # logging.info('********** simplekv at connect: %r' % simplekv)
+      access_token = simplekv.connect(self._url)
+      return access_token
+
+    def open_writer(self, access_token, uid):
+      table_name = 'table' + uid
+      return SimpleKVWriter(access_token, table_name)
+
+    def finalize_write(self, access_token, table_names):
+      for i, table_name in enumerate(table_names):
+        simplekv.rename_table(
+            access_token, table_name, self._final_table_name + i)
+
+  class SimpleKVWriter(iobase.Writer):
+
+    def __init__(self, access_token, table_name):
+      self._access_token = access_token
+      self._table_name = table_name
+      # logging.info('********** simplekv at open_table: %r' % simplekv)
+      self._table = simplekv.open_table(access_token, table_name)
+
+    def write(self, record):
+      key, value = record
+      simplekv.write_to_table(self._access_token, self._table_name, key, value)
+
+    def close(self):
+      return self._table_name
+
+  p = beam.Pipeline(options=PipelineOptions())
+  kvs = p | beam.core.Create(
+      'CreateKVs', [('key' + str(i), 'value' + str(i)) for i in range(100)])
+
+  kvs | beam.io.Write('WriteToSimpleKV',
+                      SimpleKVSink('http://url_to_simple_kv/', 'final_table'))
+
+  # p.run()
+
+  # assert simplekv.table_data['final_table0'] == {
+  #     'key' + str(i): 'value' + str(i) for i in range(100)}
+
 def model_textio(renames):
   """Using a Read and Write transform to read/write text files.
 
