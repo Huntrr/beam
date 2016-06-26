@@ -34,7 +34,6 @@ import org.apache.beam.sdk.transforms.windowing.PaneInfo.PaneInfoCoder;
 import org.apache.beam.sdk.util.common.ElementByteSizeObserver;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -69,7 +68,7 @@ public abstract class WindowedValue<T> {
       Instant timestamp,
       Collection<? extends BoundedWindow> windows,
       PaneInfo pane) {
-    Preconditions.checkNotNull(pane);
+    checkNotNull(pane);
 
     if (windows.size() == 0 && BoundedWindow.TIMESTAMP_MIN_VALUE.equals(timestamp)) {
       return valueInEmptyWindows(value, pane);
@@ -88,7 +87,7 @@ public abstract class WindowedValue<T> {
       Instant timestamp,
       BoundedWindow window,
       PaneInfo pane) {
-    Preconditions.checkNotNull(pane);
+    checkNotNull(pane);
 
     boolean isGlobal = GlobalWindow.INSTANCE.equals(window);
     if (isGlobal && BoundedWindow.TIMESTAMP_MIN_VALUE.equals(timestamp)) {
