@@ -526,6 +526,16 @@ class SnippetsTest(unittest.TestCase):
     expect = ['a; a@example.com; x4312', 'b; b@example.com; x8452']
     self.assertEqual(expect, self.get_output(result_path))
 
+  def test_model_join_using_side_inputs(self):
+    name_list = ['a', 'b']
+    email_list = [['a', 'a@example.com'], ['b', 'b@example.com']]
+    phone_list = [['a', 'x4312'], ['b', 'x8452']]
+    result_path = self.create_temp_file()
+    snippets.model_join_using_side_inputs(
+        name_list, email_list, phone_list, result_path)
+    expect = ['a; a@example.com; x4312', 'b; b@example.com; x8452']
+    self.assertEqual(expect, self.get_output(result_path))
+
 
 class CombineTest(unittest.TestCase):
   """Tests for dataflow/model/combine."""

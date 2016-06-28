@@ -970,6 +970,40 @@ def model_co_group_by_key_tuple(email_list, phone_list, output_path):
   contact_lines | beam.io.Write(beam.io.TextFileSink(output_path))
   p.run()
 
+def model_join_using_side_inputs(name_list, email_list, phone_list, output_path):
+  """Joining PCollections using side inputs."""
+
+  import apache_beam as beam
+  from apache_beam.pvalue import AsIter
+  from apache_beam.utils.options import PipelineOptions
+
+  p = beam.Pipeline(options=PipelineOptions())
+  # This is similar to the example for CoGroupByKey but we receive the set of
+  # names as an input. We perform join by passing PCollections that contain
+  # emails and phone numbers as side inputs instead of using CoGroupByKey.
+  names = p | beam.Create('names', name_list)
+  emails = p | beam.Create('email', email_list)
+  phones = p | beam.Create('phone', phone_list)
+
+  def join_info(name, emails, phone_numbers):
+    filtered_emails = []
+    for name_in_list, email in emails:
+      if name_in_list == name:
+        filtered_emails.append(email)
+
+    filtered_phone_numbers = []
+    for name_in_list, phone_number in phone_numbers:
+      if name_in_list == name:
+        filtered_phone_numbers.append(phone_number)
+
+    return '; '.join(['%s' % name,
+                      '%s' % ','.join(filtered_emails),
+                      '%s' % ','.join(filtered_phone_numbers)])
+
+  contact_lines = names | beam.core.Map(
+      "CreateContacts", join_info, AsIter(emails), AsIter(phones))
+  contact_lines | beam.io.Write(beam.io.TextFileSink(output_path))
+  p.run()
 
 # [START model_library_transforms_keys]
 class Keys(beam.PTransform):
