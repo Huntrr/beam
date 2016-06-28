@@ -17,7 +17,9 @@
 
 """Tests for all code snippets used in public docs."""
 
+import glob
 import logging
+import os
 import sys
 import tempfile
 import unittest
@@ -368,10 +370,60 @@ class SnippetsTest(unittest.TestCase):
         ['cba', 'fed', 'ihg', 'lkj', 'onm', 'rqp', 'uts', 'xwv', 'zy'])
 
   def test_model_custom_source(self):
-    snippets.model_custom_source()
+    snippets.model_custom_source(100)
 
   def test_model_custom_sink(self):
-    snippets.model_custom_sink()
+    tempdir_name = tempfile.mkdtemp()
+
+    class SimpleKV(object):
+      def __init__(self, tmp_dir):
+        self._dummy_token = 'dummy_token'
+        self._tmp_dir = tmp_dir
+
+      def connect(self, url):
+        return self._dummy_token
+
+      def open_table(self, access_token, table_name):
+        assert access_token == self._dummy_token
+        file_name = self._tmp_dir + os.sep + table_name
+        assert not os.path.exists(file_name)
+        open(file_name, 'wb').close()
+
+      def write_to_table(self, access_token, table_name, key, value):
+        assert access_token == self._dummy_token
+        file_name = self._tmp_dir + os.sep + table_name
+        assert os.path.exists(file_name)
+        with open(file_name, 'ab') as f:
+          f.write(key + ':' + value + os.linesep)
+
+      def rename_table(self, access_token, old_name, new_name):
+        assert access_token == self._dummy_token
+        old_file_name = self._tmp_dir + os.sep + old_name
+        new_file_name = self._tmp_dir + os.sep + new_name
+        assert os.path.isfile(old_file_name)
+        assert not os.path.exists(new_file_name)
+
+        os.rename(old_file_name, new_file_name)
+
+    snippets.model_custom_sink(
+        SimpleKV(tempdir_name),
+        [('key' + str(i), 'value' + str(i)) for i in range(100)],
+        'final_table')
+
+    glob_pattern = tempdir_name + os.sep + 'final_table*'
+    output_files = glob.glob(glob_pattern)
+    assert len(output_files) > 0
+
+    received_output = []
+    for file_name in output_files:
+      with open(file_name) as f:
+        for line in f:
+          received_output.append(line.rstrip(os.linesep))
+    expected_output =  [
+        'key' + str(i) + ':' + 'value' + str(i) for i in range(100)]
+
+    self.assertItemsEqual(expected_output, received_output)
+
 
   def test_model_textio(self):
     temp_path = self.create_temp_file('aa bb cc\n bb cc\n cc')
