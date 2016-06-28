@@ -614,8 +614,7 @@ def model_custom_source(count):
 
   import logging
 
-  p = beam.Pipeline(options=PipelineOptions())
-
+  # [START model_custom_source_new_source]
   class CountingSource(iobase.BoundedSource):
 
     def __init__(self, count):
@@ -653,8 +652,13 @@ def model_custom_source(count):
                            start_position=bundle_start,
                            stop_position=bundle_stop)
         bundle_start = bundle_stop
+  # [END model_custom_source_new_source]
 
+  # [START model_custom_source_use_new_source]
+  p = beam.Pipeline(options=PipelineOptions())
   numbers = p | beam.io.Read('ProduceNumbers', CountingSource(count))
+  # [END model_custom_source_use_new_source]
+
   lines = numbers | beam.core.Map(lambda number : 'line %d' % number)
   lines | beam.core.Map(lambda line : logging.info(line))
   beam.assert_that(
@@ -679,6 +683,7 @@ def model_custom_sink(simplekv, KVs, final_table_name):
   from apache_beam.io import iobase
   from apache_beam.utils.options import PipelineOptions
 
+  # [START model_custom_source_new_sink]
   class SimpleKVSink(iobase.Sink):
 
     def __init__(self, url, final_table_name):
@@ -697,7 +702,9 @@ def model_custom_sink(simplekv, KVs, final_table_name):
       for i, table_name in enumerate(table_names):
         simplekv.rename_table(
             access_token, table_name, self._final_table_name + str(i))
+  # [END model_custom_source_new_sink]
 
+  # [START model_custom_source_new_writer]
   class SimpleKVWriter(iobase.Writer):
 
     def __init__(self, access_token, table_name):
@@ -712,7 +719,9 @@ def model_custom_sink(simplekv, KVs, final_table_name):
 
     def close(self):
       return self._table_name
+  # [END model_custom_source_new_writer]
 
+  # [START model_custom_source_use_new_sink]
   p = beam.Pipeline(options=PipelineOptions())
   kvs = p | beam.core.Create(
       'CreateKVs', KVs)
@@ -720,6 +729,7 @@ def model_custom_sink(simplekv, KVs, final_table_name):
   kvs | beam.io.Write('WriteToSimpleKV',
                       SimpleKVSink('http://url_to_simple_kv/',
                                    final_table_name))
+  # [END model_custom_source_use_new_sink]
 
   p.run()
 
@@ -978,6 +988,7 @@ def model_join_using_side_inputs(name_list, email_list, phone_list, output_path)
   from apache_beam.utils.options import PipelineOptions
 
   p = beam.Pipeline(options=PipelineOptions())
+  # [START model_join_using_side_inputs]
   # This is similar to the example for CoGroupByKey but we receive the set of
   # names as an input. We perform join by passing PCollections that contain
   # emails and phone numbers as side inputs instead of using CoGroupByKey.
@@ -1002,6 +1013,7 @@ def model_join_using_side_inputs(name_list, email_list, phone_list, output_path)
 
   contact_lines = names | beam.core.Map(
       "CreateContacts", join_info, AsIter(emails), AsIter(phones))
+  # [END model_join_using_side_inputs]
   contact_lines | beam.io.Write(beam.io.TextFileSink(output_path))
   p.run()
 
