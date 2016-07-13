@@ -625,6 +625,7 @@ def model_custom_source(count):
   import apache_beam as beam
   from apache_beam.io import iobase
   from apache_beam.io.range_trackers import OffsetRangeTracker
+  from apache_beam.transforms.core import PTransform
   from apache_beam.utils.options import PipelineOptions
 
   # Defining a new source.
@@ -681,6 +682,25 @@ def model_custom_source(count):
 
   p.run()
 
+  class _CountingSource(CountingSource):
+    pass
+
+  # [START model_custom_source_new_ptransform]
+  class ReadFromCountingSource(PTransform):
+
+    def __init__(self, label, count):
+      super(ReadFromCountingSource, self).__init__(label)
+      self._count = count
+
+    def apply(self, pcoll):
+      return pcoll | iobase.Read(_CountingSource(count))
+  # [END model_custom_source_new_ptransform]
+
+  # [START model_custom_source_use_ptransform]
+  p = beam.Pipeline(options=PipelineOptions())
+  numbers = p | ReadFromCountingSource('ProduceNumbers', count)
+  # [END model_custom_source_use_ptransform]
+
 
 def model_custom_sink(simplekv, KVs, final_table_name):
   """Demonstrates creating a new custom sink and using it in a pipeline.
@@ -709,6 +729,7 @@ def model_custom_sink(simplekv, KVs, final_table_name):
 
   import apache_beam as beam
   from apache_beam.io import iobase
+  from apache_beam.transforms.core import PTransform
   from apache_beam.utils.options import PipelineOptions
 
   # Defining the new sink.
@@ -764,6 +785,28 @@ def model_custom_sink(simplekv, KVs, final_table_name):
 
   p.run()
 
+
+  class _SimpleKVSink(SimpleKVSink):
+    pass
+
+  # [START model_custom_sink_new_ptransform]
+  class WriteToKVSink(PTransform):
+    def __init__(self, label, url, final_table_name):
+      super(WriteToKVSink, self).__init__(label)
+      self._url = url
+      self._final_table_name = final_table_name
+
+    def apply(self, pcoll):
+      return pcoll | iobase.Write(_SimpleKVSink(self._url,
+                                                self._final_table_name))
+  # [END model_custom_sink_new_ptransform]
+
+  # [START model_custom_sink_use_ptransform]
+  p = beam.Pipeline(options=PipelineOptions())
+  kvs = p | beam.core.Create('CreateKVs', KVs)
+  kvs | WriteToKVSink('WriteToSimpleKV',
+                      'http://url_to_simple_kv/', final_table_name)
+  # [END model_custom_sink_use_ptransform]
 
 def model_textio(renames):
   """Using a Read and Write transform to read/write text files.
