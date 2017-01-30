@@ -17,6 +17,8 @@
 
 """A pure Python implementation of stream.pyx."""
 
+from builtins import chr
+from builtins import object
 import struct
 
 

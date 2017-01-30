@@ -54,7 +54,7 @@ def run(argv=None):
   transformed = (lines
                  | 'Split' >> (
                      beam.FlatMap(lambda x: re.findall(r'[A-Za-z\']+', x))
-                     .with_output_types(unicode))
+                     .with_output_types(str))
                  | 'PairWithOne' >> beam.Map(lambda x: (x, 1))
                  | beam.WindowInto(window.FixedWindows(15, 0))
                  | 'Group' >> beam.GroupByKey()

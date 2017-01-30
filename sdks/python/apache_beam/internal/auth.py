@@ -17,12 +17,14 @@
 
 """Dataflow credentials and authentication."""
 
+from future import standard_library
+standard_library.install_aliases()
 import datetime
 import json
 import logging
 import os
 import sys
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 
 from oauth2client.client import GoogleCredentials
 from oauth2client.client import OAuth2Credentials
@@ -86,10 +88,10 @@ class GCEMetadataCredentials(OAuth2Credentials):
       retry_filter=retry.retry_on_server_errors_and_timeout_filter)
   def _refresh(self, http_request):
     refresh_time = datetime.datetime.now()
-    req = urllib2.Request('http://metadata.google.internal/computeMetadata/v1/'
+    req = urllib.request.Request('http://metadata.google.internal/computeMetadata/v1/'
                           'instance/service-accounts/default/token',
                           headers={'Metadata-Flavor': 'Google'})
-    token_data = json.loads(urllib2.urlopen(req).read())
+    token_data = json.loads(urllib.request.urlopen(req).read())
     self.access_token = token_data['access_token']
     self.token_expiry = (refresh_time +
                          datetime.timedelta(seconds=token_data['expires_in']))

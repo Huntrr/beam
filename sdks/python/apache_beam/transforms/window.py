@@ -49,6 +49,9 @@ WindowFn.
 
 from __future__ import absolute_import
 
+from past.builtins import cmp
+from builtins import range
+from builtins import object
 from apache_beam import coders
 from apache_beam.transforms import timeutil
 from apache_beam.transforms.timeutil import Duration

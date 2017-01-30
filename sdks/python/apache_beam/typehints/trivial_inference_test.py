@@ -16,6 +16,7 @@
 #
 
 """Tests for apache_beam.typehints.trivial_inference."""
+from builtins import object
 import unittest
 
 

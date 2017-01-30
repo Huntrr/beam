@@ -15,8 +15,12 @@
 # limitations under the License.
 #
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import chr
+from builtins import range
 import binascii
-import cStringIO
+import io
 import glob
 import gzip
 import logging
@@ -66,7 +70,7 @@ class TestTFRecordUtil(unittest.TestCase):
     self.record = binascii.a2b_base64(FOO_RECORD_BASE64)
 
   def _as_file_handle(self, contents):
-    result = cStringIO.StringIO()
+    result = io.StringIO()
     result.write(contents)
     result.reset()
     return result
@@ -108,7 +112,7 @@ class TestTFRecordUtil(unittest.TestCase):
             '\x03\x00\x00\x00\x00\x00\x00\x00', crc32c_fn=crc32c_fn))
 
   def test_write_record(self):
-    file_handle = cStringIO.StringIO()
+    file_handle = io.StringIO()
     _TFRecordUtil.write_record(file_handle, 'foo')
     self.assertEqual(self.record, file_handle.getvalue())
 
@@ -129,7 +133,7 @@ class TestTFRecordUtil(unittest.TestCase):
 
   def test_compatibility_read_write(self):
     for record in ['', 'blah', 'another blah']:
-      file_handle = cStringIO.StringIO()
+      file_handle = io.StringIO()
       _TFRecordUtil.write_record(file_handle, record)
       file_handle.reset()
       actual = _TFRecordUtil.read_record(file_handle)
@@ -316,9 +320,9 @@ class TestReadFromTFRecordSource(TestTFRecordSource):
 class TestEnd2EndWriteAndRead(_TestCaseWithTempDirCleanUp):
 
   def create_inputs(self):
-    input_array = [[random.random() - 0.5 for _ in xrange(15)]
-                   for _ in xrange(12)]
-    memfile = cStringIO.StringIO()
+    input_array = [[random.random() - 0.5 for _ in range(15)]
+                   for _ in range(12)]
+    memfile = io.StringIO()
     pickle.dump(input_array, memfile)
     return memfile.getvalue()
 
@@ -368,7 +372,7 @@ class TestEnd2EndWriteAndRead(_TestCaseWithTempDirCleanUp):
     file_path_prefix = os.path.join(self._new_tempdir(), 'result')
 
     example = tf.train.Example()
-    example.features.feature['int'].int64_list.value.extend(range(3))
+    example.features.feature['int'].int64_list.value.extend(list(range(3)))
     example.features.feature['bytes'].bytes_list.value.extend(
         [b'foo', b'bar'])
 

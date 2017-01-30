@@ -17,6 +17,7 @@
 
 """Runtime type checking support."""
 
+from past.builtins import basestring
 import collections
 import inspect
 import sys
@@ -67,7 +68,7 @@ class TypeCheckWrapperDoFn(DoFn):
     if self._input_hints:
       actual_inputs = inspect.getcallargs(
           self._process_fn, context.element, *args, **kwargs)
-      for var, hint in self._input_hints.items():
+      for var, hint in list(self._input_hints.items()):
         if hint is actual_inputs[var]:
           # self parameter
           continue
@@ -254,7 +255,7 @@ class TypeCheckWrapperNewDoFn(AbstractDoFnWrapper):
   def process(self, *args, **kwargs):
     if self._input_hints:
       actual_inputs = inspect.getcallargs(self._process_fn, *args, **kwargs)
-      for var, hint in self._input_hints.items():
+      for var, hint in list(self._input_hints.items()):
         if hint is actual_inputs[var]:
           # self parameter
           continue

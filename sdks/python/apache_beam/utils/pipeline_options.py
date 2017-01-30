@@ -17,6 +17,7 @@
 
 """Pipeline options obtained from command line parsing."""
 
+from builtins import object
 import argparse
 
 from apache_beam.transforms.display import HasDisplayData
@@ -94,7 +95,7 @@ class PipelineOptions(HasDisplayData):
       A PipelineOptions object representing the given arguments.
     """
     flags = []
-    for k, v in options.iteritems():
+    for k, v in options.items():
       if isinstance(v, bool):
         if v:
           flags.append('--%s' % k)
@@ -123,7 +124,7 @@ class PipelineOptions(HasDisplayData):
     result = vars(known_args)
 
     # Apply the overrides if any
-    for k in result.keys():
+    for k in list(result.keys()):
       if k in self._all_options:
         result[k] = self._all_options[k]
       if drop_default and parser.get_default(k) == result[k]:
@@ -144,7 +145,7 @@ class PipelineOptions(HasDisplayData):
                   for option in dir(self._visible_options) if option[0] != '_')
 
   def __dir__(self):
-    return sorted(dir(type(self)) + self.__dict__.keys() +
+    return sorted(dir(type(self)) + list(self.__dict__.keys()) +
                   self._visible_option_list())
 
   def __getattr__(self, name):
@@ -523,6 +524,6 @@ class OptionsContext(object):
   @classmethod
   def augment_options(cls, options):
     for override in cls.overrides:
-      for name, value in override.items():
+      for name, value in list(override.items()):
         setattr(options, name, value)
     return options

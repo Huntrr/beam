@@ -19,6 +19,7 @@
 """Observable base class for iterables."""
 
 
+from builtins import object
 class ObservableMixin(object):
   """An observable iterable.
 

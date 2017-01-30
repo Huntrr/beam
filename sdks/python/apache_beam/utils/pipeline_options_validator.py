@@ -17,6 +17,7 @@
 
 """Pipeline options validator.
 """
+from builtins import object
 import re
 
 from apache_beam.internal import pickler

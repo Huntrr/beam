@@ -19,6 +19,7 @@
 
 from __future__ import absolute_import
 
+from builtins import object
 from abc import ABCMeta
 from abc import abstractmethod
 
@@ -30,6 +31,7 @@ from apache_beam.utils.timestamp import Duration
 from apache_beam.utils.timestamp import MAX_TIMESTAMP
 from apache_beam.utils.timestamp import MIN_TIMESTAMP
 from apache_beam.utils.timestamp import Timestamp
+from future.utils import with_metaclass
 # pylint: enable=unused-import
 
 
@@ -49,10 +51,8 @@ class TimeDomain(object):
     raise ValueError('Unknown time domain: %s' % domain)
 
 
-class OutputTimeFnImpl(object):
+class OutputTimeFnImpl(with_metaclass(ABCMeta, object)):
   """Implementation of OutputTimeFn."""
-
-  __metaclass__ = ABCMeta
 
   @abstractmethod
   def assign_output_time(self, window, input_timestamp):
@@ -78,10 +78,8 @@ class OutputTimeFnImpl(object):
     return self.combine_all(merging_timestamps)
 
 
-class DependsOnlyOnWindow(OutputTimeFnImpl):
+class DependsOnlyOnWindow(with_metaclass(ABCMeta, OutputTimeFnImpl)):
   """OutputTimeFnImpl that only depends on the window."""
-
-  __metaclass__ = ABCMeta
 
   def combine(self, output_timestamp, other_output_timestamp):
     return output_timestamp

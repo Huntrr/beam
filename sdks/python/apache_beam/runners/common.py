@@ -19,6 +19,10 @@
 
 """Worker operations executor."""
 
+from builtins import zip
+from builtins import next
+from past.builtins import basestring
+from builtins import object
 import sys
 
 from apache_beam.internal import util

@@ -20,6 +20,9 @@
 
 """Counters collect the progress of the Worker for reporting to the service."""
 
+from builtins import hex
+from past.builtins import basestring
+from builtins import object
 import threading
 from apache_beam.transforms import cy_combiners
 
@@ -151,7 +154,7 @@ class CounterFactory(object):
       this method returns hence the returned iterable may be stale.
     """
     with self._lock:
-      return self.counters.values()
+      return list(self.counters.values())
 
   def get_aggregator_values(self, aggregator_or_name):
     """Returns dict of step names to values of the aggregator."""
@@ -178,6 +181,6 @@ def get_aggregator_values(aggregator_or_name, counter_dict,
     value_extractor = lambda x: x
   if not isinstance(aggregator_or_name, basestring):
     name = aggregator_or_name.name
-    return {n: value_extractor(c) for n, c in counter_dict.iteritems()
+    return {n: value_extractor(c) for n, c in counter_dict.items()
             if n.startswith(USER_COUNTER_PREFIX)
             and n.endswith('-%s' % name)}

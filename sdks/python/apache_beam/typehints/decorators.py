@@ -83,6 +83,9 @@ properly it must appear at the top of the module where all functions are
 defined, or before importing a module containing type-hinted functions.
 """
 
+from builtins import next
+from builtins import zip
+from builtins import object
 import inspect
 import types
 
@@ -166,7 +169,7 @@ class IOTypeHints(object):
       return IOTypeHints(self.input_types or hints.input_types,
                          self.output_types or hints.output_types)
 
-  def __nonzero__(self):
+  def __bool__(self):
     return bool(self.input_types or self.output_types)
 
   def __repr__(self):
@@ -521,7 +524,7 @@ class GeneratorWrapper(object):
     else:
       return getattr(self.internal_gen, attr)
 
-  def next(self):
+  def __next__(self):
     next_val = next(self.internal_gen)
     self.interleave_func(next_val)
     return next_val

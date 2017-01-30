@@ -17,9 +17,16 @@
 """File-based sources and sinks."""
 
 from __future__ import absolute_import
+from __future__ import division
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from past.builtins import basestring
+from past.utils import old_div
+from builtins import object
 import bz2
-import cStringIO
+import io
 import glob
 import logging
 from multiprocessing.pool import ThreadPool
@@ -103,7 +110,7 @@ class CompressionTypes(object):
     """Returns the compression type of a file (based on its suffix)"""
     compression_types_by_suffix = {'.bz2': cls.BZIP2, '.gz': cls.GZIP}
     lowercased_path = file_path.lower()
-    for suffix, compression_type in compression_types_by_suffix.iteritems():
+    for suffix, compression_type in compression_types_by_suffix.items():
       if lowercased_path.endswith(suffix):
         return compression_type
     return cls.UNCOMPRESSED
@@ -346,7 +353,7 @@ class _CompressedFile(object):
 
     if self.readable():
       self._read_size = read_size
-      self._read_buffer = cStringIO.StringIO()
+      self._read_buffer = io.StringIO()
       self._read_position = 0
       self._read_eof = False
 
@@ -450,13 +457,13 @@ class _CompressedFile(object):
     if not self._decompressor:
       raise ValueError('decompressor not initialized')
 
-    io = cStringIO.StringIO()
+    io = io.StringIO()
     while True:
       # Ensure that the internal buffer has at least half the read_size. Going
       # with half the _read_size (as opposed to a full _read_size) to ensure
       # that actual fetches are more evenly spread out, as opposed to having 2
       # consecutive reads at the beginning of a read.
-      self._fetch_to_internal_buffer(self._read_size / 2)
+      self._fetch_to_internal_buffer(old_div(self._read_size, 2))
       line = self._read_from_internal_buffer(
           lambda: self._read_buffer.readline())
       io.write(line)

@@ -19,7 +19,14 @@
 """
 from __future__ import print_function
 from __future__ import absolute_import
-import __builtin__
+from __future__ import division
+from future import standard_library
+standard_library.install_aliases()
+from builtins import zip
+from builtins import str
+from past.utils import old_div
+from builtins import object
+import builtins
 import collections
 import dis
 import pprint
@@ -62,8 +69,8 @@ def instance_to_type(o):
     ]
   elif t == dict:
     return typehints.Dict[
-        typehints.Union[[instance_to_type(k) for k, v in o.items()]],
-        typehints.Union[[instance_to_type(v) for k, v in o.items()]],
+        typehints.Union[[instance_to_type(k) for k, v in list(o.items())]],
+        typehints.Union[[instance_to_type(v) for k, v in list(o.items())]],
     ]
   else:
     raise TypeInferenceError('Unknown forbidden type: %s' % t)
@@ -131,8 +138,8 @@ class FrameState(object):
     name = self.get_name(i)
     if name in self.f.__globals__:
       return Const(self.f.__globals__[name])
-    if name in __builtin__.__dict__:
-      return Const(__builtin__.__dict__[name])
+    if name in builtins.__dict__:
+      return Const(builtins.__dict__[name])
     else:
       return Any
 
@@ -283,7 +290,7 @@ def infer_return_type_func(f, input_types, debug=False, depth=0):
     print()
     print(f, id(f), input_types)
   from . import opcodes
-  simple_ops = dict((k.upper(), v) for k, v in opcodes.__dict__.items())
+  simple_ops = dict((k.upper(), v) for k, v in list(opcodes.__dict__.items()))
 
   co = f.__code__
   code = co.co_code
@@ -345,7 +352,7 @@ def infer_return_type_func(f, input_types, debug=False, depth=0):
     opname = dis.opname[op]
     jmp = jmp_state = None
     if opname.startswith('CALL_FUNCTION'):
-      standard_args = (arg & 0xF) + (arg & 0xF0) / 8
+      standard_args = (arg & 0xF) + old_div((arg & 0xF0), 8)
       var_args = 'VAR' in opname
       kw_args = 'KW' in opname
       pop_count = standard_args + var_args + kw_args + 1
@@ -408,7 +415,7 @@ def infer_return_type_func(f, input_types, debug=False, depth=0):
     if debug:
       print()
       print(state)
-      pprint.pprint(dict(item for item in states.items() if item[1]))
+      pprint.pprint(dict(item for item in list(states.items()) if item[1]))
 
   if yields:
     result = typehints.Iterable[reduce(union, Const.unwrap_all(yields))]

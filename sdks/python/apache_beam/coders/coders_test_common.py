@@ -18,6 +18,8 @@
 """Tests common to all coder implementations."""
 from __future__ import absolute_import
 
+from builtins import str
+from builtins import range
 import logging
 import math
 import unittest
@@ -56,7 +58,7 @@ class CodersTest(unittest.TestCase):
   @classmethod
   def tearDownClass(cls):
     standard = set(c
-                   for c in coders.__dict__.values()
+                   for c in list(coders.__dict__.values())
                    if isinstance(c, type) and issubclass(c, coders.Coder) and
                    'Base' not in c.__name__)
     standard -= set([coders.Coder,
@@ -140,9 +142,9 @@ class CodersTest(unittest.TestCase):
 
   def test_varint_coder(self):
     # Small ints.
-    self.check_coder(coders.VarIntCoder(), *range(-10, 10))
+    self.check_coder(coders.VarIntCoder(), *list(range(-10, 10)))
     # Multi-byte encoding starts at 128
-    self.check_coder(coders.VarIntCoder(), *range(120, 140))
+    self.check_coder(coders.VarIntCoder(), *list(range(120, 140)))
     # Large values
     MAX_64_BIT_INT = 0x7fffffffffffffff
     self.check_coder(coders.VarIntCoder(),

@@ -47,7 +47,7 @@ def find_containing_class(nested_class):
   """Finds containing class of a nestec class passed as argument."""
 
   def find_containing_class_inner(outer):
-    for k, v in outer.__dict__.items():
+    for k, v in list(outer.__dict__.items()):
       if v is nested_class:
         return outer, k
       elif isinstance(v, type) and hasattr(v, '__dict__'):
@@ -139,7 +139,7 @@ if 'save_module' in dir(dill.dill):
     obj_id = id(obj)
     if not known_module_dicts or '__file__' in obj or '__package__' in obj:
       if obj_id not in known_module_dicts:
-        for m in sys.modules.values():
+        for m in list(sys.modules.values()):
           try:
             if m and m.__name__ != '__main__':
               d = m.__dict__

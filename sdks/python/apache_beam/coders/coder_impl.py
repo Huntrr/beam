@@ -26,6 +26,9 @@ coder_impl.pxd file for type hints.
 """
 from __future__ import absolute_import
 
+from builtins import chr
+from builtins import range
+from builtins import object
 from types import NoneType
 
 from apache_beam.coders import observable
@@ -172,7 +175,7 @@ class DeterministicFastPrimitivesCoderImpl(CoderImpl):
     self._step_label = step_label
 
   def _check_safe(self, value):
-    if isinstance(value, (str, unicode, long, int, float)):
+    if isinstance(value, (str, str, int, int, float)):
       pass
     elif value is None:
       pass
@@ -261,7 +264,7 @@ class FastPrimitivesCoderImpl(StreamCoderImpl):
     elif t is str:
       stream.write_byte(STR_TYPE)
       stream.write(value, nested)
-    elif t is unicode:
+    elif t is str:
       unicode_value = value  # for typing
       stream.write_byte(UNICODE_TYPE)
       stream.write(unicode_value.encode('utf-8'), nested)
@@ -275,7 +278,7 @@ class FastPrimitivesCoderImpl(StreamCoderImpl):
       dict_value = value  # for typing
       stream.write_byte(DICT_TYPE)
       stream.write_var_int64(len(dict_value))
-      for k, v in dict_value.iteritems():
+      for k, v in dict_value.items():
         self.encode_to_stream(k, stream, True)
         self.encode_to_stream(v, stream, True)
     elif t is bool:

@@ -17,6 +17,7 @@
 
 """Apache Beam SDK for Python setup file."""
 
+from past.builtins import execfile
 from distutils.version import StrictVersion
 
 import os

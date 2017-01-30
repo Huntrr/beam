@@ -43,7 +43,13 @@ For example usages, see the unit tests of modules such as
  * apache_beam.io.source_test_utils_test.py
  * apache_beam.io.avroio_test.py
 """
+from __future__ import division
 
+from builtins import str
+from builtins import next
+from builtins import range
+from past.utils import old_div
+from builtins import object
 from collections import namedtuple
 import logging
 import threading
@@ -441,7 +447,7 @@ def assertSplitAtFractionBinary(source, expected_items,
     # This prevents infinite recursion.
     return
 
-  middle_fraction = (left_fraction + right_fraction) / 2
+  middle_fraction = old_div((left_fraction + right_fraction), 2)
 
   if left_result is None:
     left_result = _assertSplitAtFractionBehavior(

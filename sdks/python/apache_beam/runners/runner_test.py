@@ -22,6 +22,7 @@ the other unit tests. In this file we choose to test only aspects related to
 caching and clearing values that are not tested elsewhere.
 """
 
+from builtins import str
 from datetime import datetime
 import json
 import unittest

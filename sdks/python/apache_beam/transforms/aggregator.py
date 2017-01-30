@@ -44,6 +44,8 @@ running a pipeline.
 
 from __future__ import absolute_import
 
+from builtins import hex
+from builtins import object
 from apache_beam.transforms import core
 
 

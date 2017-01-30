@@ -19,6 +19,10 @@
 
 from __future__ import absolute_import
 
+from builtins import str
+from builtins import range
+from past.builtins import basestring
+from builtins import object
 import copy
 import inspect
 import types
@@ -738,7 +742,7 @@ class ParDo(PTransformWithSideInputs):
     """
     main_tag = main_kw.pop('main', None)
     if main_kw:
-      raise ValueError('Unexpected keyword arguments: %s' % main_kw.keys())
+      raise ValueError('Unexpected keyword arguments: %s' % list(main_kw.keys()))
     return _MultiParDo(self, tags, main_tag)
 
 
@@ -1405,7 +1409,7 @@ class Flatten(PTransform):
     super(Flatten, self).__init__(label)
     self.pipeline = kwargs.pop('pipeline', None)
     if kwargs:
-      raise ValueError('Unexpected keyword arguments: %s' % kwargs.keys())
+      raise ValueError('Unexpected keyword arguments: %s' % list(kwargs.keys()))
 
   def _extract_input_pvalues(self, pvalueish):
     try:
@@ -1445,7 +1449,7 @@ class Create(PTransform):
       raise TypeError('PTransform Create: Refusing to treat string as '
                       'an iterable. (string=%r)' % value)
     elif isinstance(value, dict):
-      value = value.items()
+      value = list(value.items())
     self.value = tuple(value)
 
   def infer_output_type(self, unused_input_type):

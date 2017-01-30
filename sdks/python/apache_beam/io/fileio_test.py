@@ -18,6 +18,7 @@
 
 """Unit tests for local and GCS sources and sinks."""
 
+from builtins import range
 import glob
 import logging
 import os

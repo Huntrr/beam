@@ -18,7 +18,11 @@
 """Timestamp utilities."""
 
 from __future__ import absolute_import
+from __future__ import division
 
+from past.builtins import cmp
+from builtins import object
+from past.utils import old_div
 import datetime
 
 
@@ -65,7 +69,7 @@ class Timestamp(object):
     if micros < 0:
       sign = '-'
       micros = -micros
-    int_part = micros / 1000000
+    int_part = old_div(micros, 1000000)
     frac_part = micros % 1000000
     if frac_part:
       return 'Timestamp(%s%d.%06d)' % (sign, int_part, frac_part)
@@ -84,11 +88,11 @@ class Timestamp(object):
 
   def __float__(self):
     # Note that the returned value may have lost precision.
-    return float(self.micros) / 1000000
+    return old_div(float(self.micros), 1000000)
 
   def __int__(self):
     # Note that the returned value may have lost precision.
-    return self.micros / 1000000
+    return old_div(self.micros, 1000000)
 
   def __cmp__(self, other):
     # Allow comparisons between Duration and Timestamp values.
@@ -158,7 +162,7 @@ class Duration(object):
     if micros < 0:
       sign = '-'
       micros = -micros
-    int_part = micros / 1000000
+    int_part = old_div(micros, 1000000)
     frac_part = micros % 1000000
     if frac_part:
       return 'Duration(%s%d.%06d)' % (sign, int_part, frac_part)
@@ -167,11 +171,11 @@ class Duration(object):
 
   def __float__(self):
     # Note that the returned value may have lost precision.
-    return float(self.micros) / 1000000
+    return old_div(float(self.micros), 1000000)
 
   def __int__(self):
     # Note that the returned value may have lost precision.
-    return self.micros / 1000000
+    return old_div(self.micros, 1000000)
 
   def __cmp__(self, other):
     # Allow comparisons between Duration and Timestamp values.

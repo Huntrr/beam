@@ -17,6 +17,8 @@
 
 """Unit tests for Aggregator class."""
 
+from builtins import zip
+from builtins import str
 import unittest
 
 import apache_beam as beam
@@ -68,7 +70,7 @@ class AggregatorTest(unittest.TestCase):
     p | beam.Create([0, 1, 2, 3]) | beam.ParDo(UpdateAggregators())  # pylint: disable=expression-not-assigned
     res = p.run()
     for (_, _, expected), a in zip(counter_types, aggregators):
-      actual = res.aggregated_values(a).values()[0]
+      actual = list(res.aggregated_values(a).values())[0]
       self.assertEqual(expected, actual)
       self.assertEqual(type(expected), type(actual))
 

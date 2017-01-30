@@ -17,11 +17,15 @@
 
 """A profiler context manager based on cProfile.Profile objects."""
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import object
 import cProfile
 import logging
 import os
 import pstats
-import StringIO
+import io
 import tempfile
 import time
 
@@ -62,7 +66,7 @@ class Profile(object):
       os.remove(filename)
 
     if self.log_results:
-      s = StringIO.StringIO()
+      s = io.StringIO()
       self.stats = pstats.Stats(
           self.profile, stream=s).sort_stats(Profile.SORTBY)
       self.stats.print_stats()

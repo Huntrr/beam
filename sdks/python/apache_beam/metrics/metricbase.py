@@ -30,6 +30,7 @@ Available classes:
 """
 
 
+from builtins import object
 class MetricName(object):
   """The name of a metric.
 

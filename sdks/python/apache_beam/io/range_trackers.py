@@ -17,7 +17,10 @@
 
 """iobase.RangeTracker implementations provided with Dataflow SDK.
 """
+from __future__ import division
 
+from builtins import zip
+from past.utils import old_div
 import logging
 import math
 import threading
@@ -42,9 +45,9 @@ class OffsetRangeTracker(iobase.RangeTracker):
       raise ValueError('Start offset must not be \'None\'')
     if end is None:
       raise ValueError('End offset must not be \'None\'')
-    assert isinstance(start, int) or isinstance(start, long)
+    assert isinstance(start, int) or isinstance(start, int)
     if end != self.OFFSET_INFINITY:
-      assert isinstance(end, int) or isinstance(end, long)
+      assert isinstance(end, int) or isinstance(end, int)
 
     assert start <= end
 
@@ -114,7 +117,7 @@ class OffsetRangeTracker(iobase.RangeTracker):
       self._last_record_start = record_start
 
   def try_split(self, split_offset):
-    assert isinstance(split_offset, (int, long))
+    assert isinstance(split_offset, (int, int))
     with self._lock:
       if self._stop_offset == OffsetRangeTracker.OFFSET_INFINITY:
         logging.debug('refusing to split %r at %d: stop position unspecified',
@@ -139,8 +142,8 @@ class OffsetRangeTracker(iobase.RangeTracker):
 
       logging.debug('Agreeing to split %r at %d', self, split_offset)
 
-      split_fraction = (float(split_offset - self._start_offset) / (
-          self._stop_offset - self._start_offset))
+      split_fraction = (old_div(float(split_offset - self._start_offset), (
+          self._stop_offset - self._start_offset)))
       self._stop_offset = split_offset
 
       return self._stop_offset, split_fraction
@@ -467,7 +470,7 @@ class LexicographicKeyRangeTracker(OrderedPositionRangeTracker):
     istart = cls._string_to_int(start, prec)
     ikey = cls._string_to_int(key, prec)
     iend = cls._string_to_int(end, prec) if end else 1 << (prec * 8)
-    return float(ikey - istart) / (iend - istart)
+    return old_div(float(ikey - istart), (iend - istart))
 
   @staticmethod
   def _string_to_int(s, prec):

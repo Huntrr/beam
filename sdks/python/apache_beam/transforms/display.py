@@ -34,6 +34,8 @@ Available classes:
 
 from __future__ import absolute_import
 
+from builtins import str
+from builtins import object
 import calendar
 from datetime import datetime, timedelta
 import inspect
@@ -85,7 +87,7 @@ class DisplayData(object):
   def _populate_items(self, display_data_dict):
     """ Populates the list of display data items.
     """
-    for key, element in display_data_dict.items():
+    for key, element in list(display_data_dict.items()):
       if isinstance(element, HasDisplayData):
         subcomponent_display_data = DisplayData(element._namespace(),
                                                 element.display_data())
@@ -131,7 +133,7 @@ class DisplayData(object):
 
     items = {k: (v if DisplayDataItem._get_value_type(v) is not None
                  else str(v))
-             for k, v in pipeline_options.display_data().items()}
+             for k, v in list(pipeline_options.display_data().items())}
     return cls(pipeline_options._namespace(), items)
 
   @classmethod

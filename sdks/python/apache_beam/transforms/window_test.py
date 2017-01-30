@@ -16,7 +16,10 @@
 #
 
 """Unit tests for the windowing classes."""
+from __future__ import division
 
+from builtins import range
+from past.utils import old_div
 import unittest
 
 from apache_beam.test_pipeline import TestPipeline
@@ -196,7 +199,7 @@ class WindowTest(unittest.TestCase):
               # We add a 'key' to each value representing the index of the
               # window. This is important since there is no guarantee of
               # order for the elements of a PCollection.
-              | Map(lambda v: (v / 5, v)))
+              | Map(lambda v: (old_div(v, 5), v)))
     # Sum all elements associated with a key and window. Although it
     # is called CombinePerKey it is really CombinePerKeyAndWindow the
     # same way GroupByKey is really GroupByKeyAndWindow.

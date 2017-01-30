@@ -24,7 +24,11 @@ for more details.
 
 For an example implementation of ``FileBasedSource`` see ``avroio.AvroSource``.
 """
+from __future__ import division
 
+from builtins import str
+from past.builtins import basestring
+from past.utils import old_div
 import random
 import threading
 import weakref
@@ -206,7 +210,7 @@ class FileBasedSource(iobase.BoundedSource):
                             FileBasedSource.MIN_FRACTION_OF_FILES_TO_STAT))
       sample = random.sample(file_names, sample_size)
       estimate = self._estimate_sizes_of_files(sample)
-      return int(sum(estimate) * (float(len(file_names)) / len(sample)))
+      return int(sum(estimate) * (old_div(float(len(file_names)), len(sample))))
 
   def read(self, range_tracker):
     return self._get_concat_source().read(range_tracker)
@@ -244,11 +248,11 @@ class _SingleFileSource(iobase.BoundedSource):
 
   def __init__(self, file_based_source, file_name, start_offset, stop_offset,
                min_bundle_size=0, splittable=True):
-    if not isinstance(start_offset, (int, long)):
+    if not isinstance(start_offset, (int, int)):
       raise TypeError(
           'start_offset must be a number. Received: %r' % start_offset)
     if stop_offset != range_trackers.OffsetRangeTracker.OFFSET_INFINITY:
-      if not isinstance(stop_offset, (int, long)):
+      if not isinstance(stop_offset, (int, int)):
         raise TypeError(
             'stop_offset must be a number. Received: %r' % stop_offset)
       if start_offset >= stop_offset:

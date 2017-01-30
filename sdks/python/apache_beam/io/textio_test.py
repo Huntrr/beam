@@ -16,7 +16,10 @@
 #
 
 """Tests for textio module."""
+from __future__ import division
 
+from builtins import range
+from past.utils import old_div
 import bz2
 import glob
 import gzip
@@ -238,7 +241,7 @@ class TextSourceTest(unittest.TestCase):
       fraction_consumed_report.append(range_tracker.fraction_consumed())
 
     self.assertEqual(
-        [float(i) / 10 for i in range(0, 10)], fraction_consumed_report)
+        [old_div(float(i), 10) for i in range(0, 10)], fraction_consumed_report)
 
   def test_read_reentrant_without_splitting(self):
     file_name, expected_data = write_data(10)

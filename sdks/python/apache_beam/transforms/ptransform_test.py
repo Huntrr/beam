@@ -19,7 +19,13 @@
 
 from __future__ import absolute_import
 from __future__ import print_function
+from __future__ import division
 
+from builtins import zip
+from builtins import map
+from builtins import str
+from builtins import range
+from past.utils import old_div
 import operator
 import re
 import unittest
@@ -315,21 +321,21 @@ class PTransformTest(unittest.TestCase):
       return sum_ + element, count + 1
 
     def merge_accumulators(self, accumulators):
-      sums, counts = zip(*accumulators)
+      sums, counts = list(zip(*accumulators))
       return sum(sums), sum(counts)
 
     def extract_output(self, xxx_todo_changeme3):
       (sum_, count) = xxx_todo_changeme3
       if not count:
         return float('nan')
-      return sum_ / float(count)
+      return old_div(sum_, float(count))
 
   def test_combine_with_combine_fn(self):
     vals = [1, 2, 3, 4, 5, 6, 7]
     pipeline = TestPipeline()
     pcoll = pipeline | 'Start' >> beam.Create(vals)
     result = pcoll | 'Mean' >> beam.CombineGlobally(self._MeanCombineFn())
-    assert_that(result, equal_to([sum(vals) / len(vals)]))
+    assert_that(result, equal_to([old_div(sum(vals), len(vals))]))
     pipeline.run()
 
   def test_combine_with_callable(self):
@@ -360,8 +366,8 @@ class PTransformTest(unittest.TestCase):
     pcoll = pipeline | 'Start' >> beam.Create(([('a', x) for x in vals_1] +
                                                [('b', x) for x in vals_2]))
     result = pcoll | 'Mean' >> beam.CombinePerKey(self._MeanCombineFn())
-    assert_that(result, equal_to([('a', sum(vals_1) / len(vals_1)),
-                                  ('b', sum(vals_2) / len(vals_2))]))
+    assert_that(result, equal_to([('a', old_div(sum(vals_1), len(vals_1))),
+                                  ('b', old_div(sum(vals_2), len(vals_2)))]))
     pipeline.run()
 
   def test_combine_per_key_with_callable(self):
@@ -1021,7 +1027,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
 
     # Filter should deduce that it returns the same type that it takes.
     (self.p
-     | 'Str' >> beam.Create(range(5)).with_output_types(int)
+     | 'Str' >> beam.Create(list(range(5))).with_output_types(int)
      | 'Half' >> beam.Filter(half)
      | 'ToBool' >> beam.Map(lambda x: bool(x))
      .with_input_types(int).with_output_types(bool))
@@ -1040,7 +1046,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
 
   def test_group_by_key_output_type_deduction(self):
     d = (self.p
-         | 'Str' >> beam.Create(range(20)).with_output_types(int)
+         | 'Str' >> beam.Create(list(range(20))).with_output_types(int)
          | ('PairNegative' >> beam.Map(lambda x: (x % 5, -x))
             .with_output_types(typehints.KV[int, int]))
          | beam.GroupByKey())
@@ -1067,7 +1073,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
     # aliased to Tuple[int, str].
     with self.assertRaises(typehints.TypeCheckError) as e:
       (self.p
-       | (beam.Create(range(5))
+       | (beam.Create(list(range(5)))
           .with_output_types(typehints.Iterable[int]))
        | 'T' >> beam.GroupByKey())
 
@@ -1083,7 +1089,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
     # information to the ParDo.
     with self.assertRaises(typehints.TypeCheckError) as e:
       (self.p
-       | 'Nums' >> beam.Create(range(5))
+       | 'Nums' >> beam.Create(list(range(5)))
        | 'ModDup' >> beam.FlatMap(lambda x: (x % 2, x)))
 
     self.assertEqual('Pipeline type checking is enabled, however no output '
@@ -1096,7 +1102,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
     # information to GBK-only.
     with self.assertRaises(typehints.TypeCheckError) as e:
       (self.p
-       | 'Nums' >> beam.Create(range(5)).with_output_types(int)
+       | 'Nums' >> beam.Create(list(range(5))).with_output_types(int)
        | 'ModDup' >> beam.Map(lambda x: (x % 2, x))
        | beam.GroupByKeyOnly())
 
@@ -1173,7 +1179,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
       return (a % 2, a)
 
     (self.p
-     | 'Nums' >> beam.Create(range(5)).with_output_types(int)
+     | 'Nums' >> beam.Create(list(range(5))).with_output_types(int)
      | 'IsEven' >> beam.Map(is_even_as_key)
      | 'Parity' >> beam.GroupByKey())
 
@@ -1202,7 +1208,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
       return (a % 2 == 0, a)
 
     result = (self.p
-              | 'Nums' >> beam.Create(range(5)).with_output_types(int)
+              | 'Nums' >> beam.Create(list(range(5))).with_output_types(int)
               | 'IsEven' >> beam.Map(is_even_as_key)
               | 'Parity' >> beam.GroupByKey())
 
@@ -1446,7 +1452,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
     self.p.options.view_as(TypeOptions).runtime_type_check = True
 
     d = (self.p
-         | beam.Create(range(5)).with_output_types(int)
+         | beam.Create(list(range(5))).with_output_types(int)
          | ('Sum' >> beam.CombineGlobally(lambda s: sum(s))
             .with_input_types(int).with_output_types(int)))
 
@@ -1456,7 +1462,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
   def test_combine_pipeline_type_check_violation_using_methods(self):
     with self.assertRaises(typehints.TypeCheckError) as e:
       (self.p
-       | beam.Create(range(3)).with_output_types(int)
+       | beam.Create(list(range(3))).with_output_types(int)
        | ('SortJoin' >> beam.CombineGlobally(lambda s: ''.join(sorted(s)))
           .with_input_types(str).with_output_types(str)))
 
@@ -1470,7 +1476,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
 
     with self.assertRaises(typehints.TypeCheckError) as e:
       (self.p
-       | beam.Create(range(3)).with_output_types(int)
+       | beam.Create(list(range(3))).with_output_types(int)
        | ('SortJoin' >> beam.CombineGlobally(lambda s: ''.join(sorted(s)))
           .with_input_types(str).with_output_types(str)))
       self.p.run()
@@ -1488,7 +1494,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
 
     with self.assertRaises(typehints.TypeCheckError) as e:
       (self.p
-       | 'E' >> beam.Create(range(3)).with_output_types(int)
+       | 'E' >> beam.Create(list(range(3))).with_output_types(int)
        | 'SortJoin' >> beam.CombineGlobally(lambda s: ''.join(sorted(s)))
        | 'F' >> beam.Map(lambda x: x + 1))
 
@@ -1500,7 +1506,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
 
   def test_mean_globally_pipeline_checking_satisfied(self):
     d = (self.p
-         | 'C' >> beam.Create(range(5)).with_output_types(int)
+         | 'C' >> beam.Create(list(range(5))).with_output_types(int)
          | 'Mean' >> combine.Mean.Globally())
 
     self.assertTrue(d.element_type is float)
@@ -1523,7 +1529,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
     self.p.options.view_as(TypeOptions).runtime_type_check = True
 
     d = (self.p
-         | 'C' >> beam.Create(range(5)).with_output_types(int)
+         | 'C' >> beam.Create(list(range(5))).with_output_types(int)
          | 'Mean' >> combine.Mean.Globally())
 
     self.assertTrue(d.element_type is float)
@@ -1552,7 +1558,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
 
   def test_mean_per_key_pipeline_checking_satisfied(self):
     d = (self.p
-         | beam.Create(range(5)).with_output_types(int)
+         | beam.Create(list(range(5))).with_output_types(int)
          | ('EvenGroup' >> beam.Map(lambda x: (not x % 2, x))
             .with_output_types(typehints.KV[bool, int]))
          | 'EvenMean' >> combine.Mean.PerKey())
@@ -1564,7 +1570,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
   def test_mean_per_key_pipeline_checking_violated(self):
     with self.assertRaises(typehints.TypeCheckError) as e:
       (self.p
-       | beam.Create(map(str, range(5))).with_output_types(str)
+       | beam.Create(list(map(str, list(range(5))))).with_output_types(str)
        | ('UpperPair' >> beam.Map(lambda x: (x.upper(), x))
           .with_output_types(typehints.KV[str, str]))
        | 'EvenMean' >> combine.Mean.PerKey())
@@ -1580,7 +1586,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
     self.p.options.view_as(TypeOptions).runtime_type_check = True
 
     d = (self.p
-         | beam.Create(range(5)).with_output_types(int)
+         | beam.Create(list(range(5))).with_output_types(int)
          | ('OddGroup' >> beam.Map(lambda x: (bool(x % 2), x))
             .with_output_types(typehints.KV[bool, int]))
          | 'OddMean' >> combine.Mean.PerKey())
@@ -1595,7 +1601,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
 
     with self.assertRaises(typehints.TypeCheckError) as e:
       (self.p
-       | beam.Create(range(5)).with_output_types(int)
+       | beam.Create(list(range(5))).with_output_types(int)
        | ('OddGroup' >> beam.Map(lambda x: (x, str(bool(x % 2))))
           .with_output_types(typehints.KV[int, str]))
        | 'OddMean' >> combine.Mean.PerKey())
@@ -1619,7 +1625,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
 
   def test_count_globally_pipeline_type_checking_satisfied(self):
     d = (self.p
-         | 'P' >> beam.Create(range(5)).with_output_types(int)
+         | 'P' >> beam.Create(list(range(5))).with_output_types(int)
          | 'CountInt' >> combine.Count.Globally())
 
     self.assertTrue(d.element_type is int)
@@ -1630,7 +1636,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
     self.p.options.view_as(TypeOptions).runtime_type_check = True
 
     d = (self.p
-         | 'P' >> beam.Create(range(5)).with_output_types(int)
+         | 'P' >> beam.Create(list(range(5))).with_output_types(int)
          | 'CountInt' >> combine.Count.Globally())
 
     self.assertTrue(d.element_type is int)
@@ -1639,7 +1645,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
 
   def test_count_perkey_pipeline_type_checking_satisfied(self):
     d = (self.p
-         | beam.Create(range(5)).with_output_types(int)
+         | beam.Create(list(range(5))).with_output_types(int)
          | ('EvenGroup' >> beam.Map(lambda x: (not x % 2, x))
             .with_output_types(typehints.KV[bool, int]))
          | 'CountInt' >> combine.Count.PerKey())
@@ -1651,7 +1657,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
   def test_count_perkey_pipeline_type_checking_violated(self):
     with self.assertRaises(typehints.TypeCheckError) as e:
       (self.p
-       | beam.Create(range(5)).with_output_types(int)
+       | beam.Create(list(range(5))).with_output_types(int)
        | 'CountInt' >> combine.Count.PerKey())
 
     self.assertEqual("Input type hint violation at GroupByKey: "
@@ -1708,7 +1714,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
 
   def test_top_of_pipeline_checking_satisfied(self):
     d = (self.p
-         | beam.Create(range(5, 11)).with_output_types(int)
+         | beam.Create(list(range(5, 11))).with_output_types(int)
          | 'Top 3' >> combine.Top.Of(3, lambda x, y: x < y))
 
     self.assertCompatible(typehints.Iterable[int],
@@ -1730,7 +1736,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
   def test_per_key_pipeline_checking_violated(self):
     with self.assertRaises(typehints.TypeCheckError) as e:
       (self.p
-       | beam.Create(range(100)).with_output_types(int)
+       | beam.Create(list(range(100))).with_output_types(int)
        | 'Num + 1' >> beam.Map(lambda x: x + 1).with_output_types(int)
        | 'TopMod' >> combine.Top.PerKey(1, lambda a, b: a < b))
 
@@ -1741,7 +1747,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
 
   def test_per_key_pipeline_checking_satisfied(self):
     d = (self.p
-         | beam.Create(range(100)).with_output_types(int)
+         | beam.Create(list(range(100))).with_output_types(int)
          | ('GroupMod 3' >> beam.Map(lambda x: (x % 3, x))
             .with_output_types(typehints.KV[int, int]))
          | 'TopMod' >> combine.Top.PerKey(1, lambda a, b: a < b))
@@ -1755,7 +1761,7 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
     self.p.options.view_as(TypeOptions).runtime_type_check = True
 
     d = (self.p
-         | beam.Create(range(21))
+         | beam.Create(list(range(21)))
          | ('GroupMod 3' >> beam.Map(lambda x: (x % 3, x))
             .with_output_types(typehints.KV[int, int]))
          | 'TopMod' >> combine.Top.PerKey(1, lambda a, b: a < b))

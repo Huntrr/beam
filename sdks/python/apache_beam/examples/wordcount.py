@@ -83,7 +83,7 @@ def run(argv=None):
   # Count the occurrences of each word.
   counts = (lines
             | 'split' >> (beam.ParDo(WordExtractingDoFn())
-                          .with_output_types(unicode))
+                          .with_output_types(str))
             | 'pair_with_one' >> beam.Map(lambda x: (x, 1))
             | 'group' >> beam.GroupByKey()
             | 'count' >> beam.Map(lambda word_ones: (word_ones[0], sum(word_ones[1]))))
@@ -101,7 +101,7 @@ def run(argv=None):
   empty_line_values = result.aggregated_values(empty_line_aggregator)
   logging.info('number of empty lines: %d', sum(empty_line_values.values()))
   word_length_values = result.aggregated_values(average_word_size_aggregator)
-  logging.info('average word lengths: %s', word_length_values.values())
+  logging.info('average word lengths: %s', list(word_length_values.values()))
 
 
 if __name__ == '__main__':

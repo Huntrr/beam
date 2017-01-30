@@ -16,7 +16,11 @@
 #
 """Implements a source for reading Avro files."""
 
-import cStringIO
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import object
+import io
 import os
 import zlib
 
@@ -201,7 +205,7 @@ class _AvroBlock(object):
       # We take care to avoid extra copies of data while slicing large objects
       # by use of a buffer.
       result = snappy.decompress(buffer(data)[:-4])
-      avroio.BinaryDecoder(cStringIO.StringIO(data[-4:])).check_crc32(result)
+      avroio.BinaryDecoder(io.StringIO(data[-4:])).check_crc32(result)
       return result
     else:
       raise ValueError('Unknown codec: %r', codec)
@@ -211,7 +215,7 @@ class _AvroBlock(object):
 
   def records(self):
     decoder = avroio.BinaryDecoder(
-        cStringIO.StringIO(self._decompressed_block_bytes))
+        io.StringIO(self._decompressed_block_bytes))
     reader = avroio.DatumReader(
         writers_schema=self._schema, readers_schema=self._schema)
 

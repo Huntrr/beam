@@ -71,7 +71,7 @@ class StandardCodersTest(unittest.TestCase):
     parse_value = self.json_value_parser(spec['coder'])
     nested_list = [spec['nested']] if 'nested' in spec else [True, False]
     for nested in nested_list:
-      for expected_encoded, json_value in spec['examples'].items():
+      for expected_encoded, json_value in list(spec['examples'].items()):
         value = parse_value(json_value)
         expected_encoded = expected_encoded.encode('latin1')
         actual_encoded = encode_nested(coder, value, nested)
@@ -106,7 +106,7 @@ class StandardCodersTest(unittest.TestCase):
 
       def quote(s):
         return json.dumps(s.decode('latin1')).replace(r'\u0000', r'\0')
-      for (doc_ix, expected_encoded), actual_encoded in cls.to_fix.items():
+      for (doc_ix, expected_encoded), actual_encoded in list(cls.to_fix.items()):
         print(quote(expected_encoded), "->", quote(actual_encoded))
         docs[doc_ix] = docs[doc_ix].replace(
             quote(expected_encoded) + ':', quote(actual_encoded) + ':')

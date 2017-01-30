@@ -17,6 +17,7 @@
 
 """Unit tests for the DataflowRunner class."""
 
+from builtins import object
 import unittest
 import mock
 
