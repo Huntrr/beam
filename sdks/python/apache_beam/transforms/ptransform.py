@@ -54,6 +54,7 @@ from apache_beam.typehints import TypeCheckError
 from apache_beam.typehints import validate_composite_type_param
 from apache_beam.typehints import WithTypeHints
 from apache_beam.typehints.trivial_inference import instance_to_type
+from functools import reduce
 
 
 class _PValueishTransform(object):
@@ -721,8 +722,8 @@ def label_from_callable(fn):
   elif hasattr(fn, '__name__'):
     if fn.__name__ == '<lambda>':
       return '<lambda at %s:%s>' % (
-          os.path.basename(fn.func_code.co_filename),
-          fn.func_code.co_firstlineno)
+          os.path.basename(fn.__code__.co_filename),
+          fn.__code__.co_firstlineno)
     else:
       return fn.__name__
   else:

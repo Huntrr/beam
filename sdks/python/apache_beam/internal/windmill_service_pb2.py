@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -30,7 +31,7 @@ from google.protobuf import descriptor_pb2
 _sym_db = _symbol_database.Default()
 
 
-import windmill_pb2 as windmill__pb2
+from . import windmill_pb2 as windmill__pb2
 
 
 DESCRIPTOR = _descriptor.FileDescriptor(

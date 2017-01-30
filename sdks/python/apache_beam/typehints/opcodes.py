@@ -24,11 +24,13 @@ FrameState object, the second the integer opcode argument.
 Bytecodes with more complicated behavior (e.g. modifying the program counter)
 are handled inline rather than here.
 """
+from __future__ import absolute_import
 import types
 
-from trivial_inference import union, element_type, Const, BoundMethod
-import typehints
-from typehints import Any, Dict, Iterable, List, Tuple, Union
+from .trivial_inference import union, element_type, Const, BoundMethod
+from . import typehints
+from .typehints import Any, Dict, Iterable, List, Tuple, Union
+from functools import reduce
 
 
 def pop_one(state, unused_arg):
@@ -249,7 +251,7 @@ def load_attr(state, arg):
   name = state.get_name(arg)
   if isinstance(o, Const) and hasattr(o.value, name):
     state.stack.append(Const(getattr(o.value, name)))
-  elif (isinstance(o, (type, types.ClassType))
+  elif (isinstance(o, type)
         and isinstance(getattr(o, name, None), types.MethodType)):
     state.stack.append(Const(BoundMethod(getattr(o, name))))
   else:

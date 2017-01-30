@@ -224,14 +224,14 @@ class DoFnRunner(Receiver):
         elif d == core.NewDoFn.SideInputParam:
           # If no more args are present then the value must be passed via kwarg
           try:
-            final_args.append(args.next())
+            final_args.append(next(args))
           except StopIteration:
             if a not in kwargs:
               raise
         else:
           # If no more args are present then the value must be passed via kwarg
           try:
-            final_args.append(args.next())
+            final_args.append(next(args))
           except StopIteration:
             if a not in kwargs:
               kwargs[a] = d

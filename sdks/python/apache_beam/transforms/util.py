@@ -104,14 +104,16 @@ class CoGroupByKey(PTransform):
   def expand(self, pcolls):
     """Performs CoGroupByKey on argument pcolls; see class docstring."""
     # For associating values in K-V pairs with the PCollections they came from.
-    def _pair_tag_with_value((key, value), tag):
+    def _pair_tag_with_value(xxx_todo_changeme, tag):
+      (key, value) = xxx_todo_changeme
       return (key, (tag, value))
 
     # Creates the key, value pairs for the output PCollection. Values are either
     # lists or dicts (per the class docstring), initialized by the result of
     # result_ctor(result_ctor_arg).
-    def _merge_tagged_vals_under_key((key, grouped), result_ctor,
+    def _merge_tagged_vals_under_key(xxx_todo_changeme4, result_ctor,
                                      result_ctor_arg):
+      (key, grouped) = xxx_todo_changeme4
       result_value = result_ctor(result_ctor_arg)
       for tag, value in grouped:
         result_value[tag].append(value)
@@ -147,17 +149,17 @@ class CoGroupByKey(PTransform):
 
 def Keys(label='Keys'):  # pylint: disable=invalid-name
   """Produces a PCollection of first elements of 2-tuples in a PCollection."""
-  return Map(label, lambda (k, v): k)
+  return Map(label, lambda k_v1: k_v1[0])
 
 
 def Values(label='Values'):  # pylint: disable=invalid-name
   """Produces a PCollection of second elements of 2-tuples in a PCollection."""
-  return Map(label, lambda (k, v): v)
+  return Map(label, lambda k_v2: k_v2[1])
 
 
 def KvSwap(label='KvSwap'):  # pylint: disable=invalid-name
   """Produces a PCollection reversing 2-tuples in a PCollection."""
-  return Map(label, lambda (k, v): (v, k))
+  return Map(label, lambda k_v3: (k_v3[1], k_v3[0]))
 
 
 @ptransform_fn
@@ -226,7 +228,7 @@ def assert_that(actual, matcher, label='assert_that'):
               | WindowInto(window.GlobalWindows())
               | "ToVoidKey" >> Map(lambda v: (None, v))
               | "Group" >> GroupByKey()
-              | "UnKey" >> Map(lambda (k, v): v)
+              | "UnKey" >> Map(lambda k_v: k_v[1])
               | "Match" >> Map(matcher))
 
     def default_label(self):

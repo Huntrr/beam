@@ -16,6 +16,7 @@
 #
 
 """Collection of useful coders."""
+from __future__ import absolute_import
 
 import base64
 import cPickle as pickle
@@ -25,9 +26,9 @@ from apache_beam.coders import coder_impl
 
 # pylint: disable=wrong-import-order, wrong-import-position, ungrouped-imports
 try:
-  from stream import get_varint_size
+  from .stream import get_varint_size
 except ImportError:
-  from slow_stream import get_varint_size
+  from .slow_stream import get_varint_size
 # pylint: enable=wrong-import-order, wrong-import-position, ungrouped-imports
 
 
