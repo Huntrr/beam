@@ -33,6 +33,14 @@ from apache_beam.metrics.metricbase import Counter, Distribution
 from apache_beam.metrics.metricbase import MetricName
 
 
+try:
+  basestring
+  def isstring(s):
+    return isinstance(s, basestring)
+except NameError:
+  def isstring(s):
+    return isinstance(s,str)
+
 class Metrics(object):
   """Lets users create/access metric objects during pipeline execution.
   """
@@ -40,7 +48,7 @@ class Metrics(object):
   def get_namespace(namespace):
     if inspect.isclass(namespace):
       return '{}.{}'.format(namespace.__module__, namespace.__name__)
-    elif isinstance(namespace, str):
+    elif isstring(namespace):
       return namespace
     else:
       raise ValueError('Unknown namespace type')
@@ -140,7 +148,7 @@ class MetricsFilter(object):
     return self.with_names([name])
 
   def with_names(self, names):
-    if isinstance(names, str):
+    if isstring(names):
       raise ValueError('Names must be an iterable, not a string')
 
     self._steps.update(names)
@@ -150,7 +158,7 @@ class MetricsFilter(object):
     return self.with_namespaces([namespace])
 
   def with_namespaces(self, namespaces):
-    if isinstance(namespaces, str):
+    if isstring(namespaces):
       raise ValueError('Namespaces must be an iterable, not a string')
 
     self._namespaces.update([Metrics.get_namespace(ns) for ns in namespaces])
@@ -160,7 +168,7 @@ class MetricsFilter(object):
     return self.with_steps([step])
 
   def with_steps(self, steps):
-    if isinstance(namespaces, str):
+    if isstring(namespaces):
       raise ValueError('Steps must be an iterable, not a string')
 
     self._steps.update(steps)
