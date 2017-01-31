@@ -23,7 +23,7 @@ from builtins import str
 import re
 
 
-__version__ = '0.3.0-incubating.dev'  # TODO: PEP 440 and incubating suffix
+__version__ = '0.6.0.dev'
 
 
 # The following utilities are legacy code from the Maven integration;
@@ -42,7 +42,6 @@ def get_version_from_pom():
     search = pattern.search(pom)
     version = search.group(1)
     version = version.replace("-SNAPSHOT", ".dev")
-    # TODO: PEP 440 and incubating suffix
     return version
 
 
