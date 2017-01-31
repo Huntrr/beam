@@ -18,6 +18,7 @@
 # cython: profile=True
 
 """Worker operations executor."""
+from __future__ import unicode_literals
 
 from builtins import zip
 from builtins import next

@@ -16,6 +16,7 @@
 #
 
 """Unit tests for the pipeline options module."""
+from __future__ import unicode_literals
 
 import logging
 import unittest

@@ -16,6 +16,7 @@
 #
 
 """Various names for properties, transforms, etc."""
+from __future__ import unicode_literals
 
 
 # Standard file names used for staging files.

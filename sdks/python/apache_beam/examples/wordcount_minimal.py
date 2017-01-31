@@ -45,6 +45,7 @@ pipeline. You can see the results in your output bucket in the GCS browser.
 """
 
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
 import argparse
 import logging

@@ -16,6 +16,7 @@
 #
 
 """Python Dataflow error classes."""
+from __future__ import unicode_literals
 
 
 class DataflowError(Exception):

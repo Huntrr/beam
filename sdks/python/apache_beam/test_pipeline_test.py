@@ -16,6 +16,7 @@
 #
 
 """Unit test for the TestPipeline class"""
+from __future__ import unicode_literals
 
 import logging
 import unittest

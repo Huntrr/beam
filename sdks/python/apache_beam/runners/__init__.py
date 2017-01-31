@@ -19,6 +19,7 @@
 
 This package defines runners, which are used to execute a pipeline.
 """
+from __future__ import unicode_literals
 
 from apache_beam.runners.dataflow_runner import DataflowRunner
 from apache_beam.runners.direct.direct_runner import DirectRunner

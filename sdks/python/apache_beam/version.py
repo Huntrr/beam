@@ -16,8 +16,10 @@
 #
 
 """Apache Beam SDK version information and utilities."""
+from __future__ import unicode_literals
 
 
+from builtins import str
 import re
 
 

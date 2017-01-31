@@ -18,6 +18,7 @@
 """ConsumerTrackingPipelineVisitor, a PipelineVisitor object."""
 
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
 from apache_beam import pvalue
 from apache_beam.pipeline import PipelineVisitor

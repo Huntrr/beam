@@ -16,6 +16,7 @@
 #
 
 """Utility functions used throughout the package."""
+from __future__ import unicode_literals
 
 
 from builtins import next

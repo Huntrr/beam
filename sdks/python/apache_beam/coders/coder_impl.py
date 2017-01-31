@@ -25,6 +25,7 @@ This module may be optionally compiled with Cython, using the corresponding
 coder_impl.pxd file for type hints.
 """
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
 from builtins import chr
 from builtins import range
@@ -175,7 +176,7 @@ class DeterministicFastPrimitivesCoderImpl(CoderImpl):
     self._step_label = step_label
 
   def _check_safe(self, value):
-    if isinstance(value, (str, str, int, int, float)):
+    if isinstance(value, (str, int, float)):
       pass
     elif value is None:
       pass
@@ -278,7 +279,7 @@ class FastPrimitivesCoderImpl(StreamCoderImpl):
       dict_value = value  # for typing
       stream.write_byte(DICT_TYPE)
       stream.write_var_int64(len(dict_value))
-      for k, v in dict_value.items():
+      for k, v in list(dict_value.items()):
         self.encode_to_stream(k, stream, True)
         self.encode_to_stream(v, stream, True)
     elif t is bool:

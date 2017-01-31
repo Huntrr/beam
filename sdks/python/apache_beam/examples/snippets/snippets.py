@@ -29,7 +29,11 @@ automatically in the web docs. The naming convention for the tags is to have as
 prefix the PATH_TO_HTML where they are included followed by a descriptive
 string. The tags can contain only letters, digits and _.
 """
+from __future__ import unicode_literals
 
+from builtins import str
+from builtins import range
+from builtins import object
 import apache_beam as beam
 from apache_beam.test_pipeline import TestPipeline
 
@@ -432,7 +436,7 @@ def examples_wordcount_minimal(renames):
       # [END examples_wordcount_minimal_count]
 
       # [START examples_wordcount_minimal_map]
-      | beam.Map(lambda (word, count): '%s: %s' % (word, count))
+      | beam.Map(lambda word_count: '%s: %s' % (word_count[0], word_count[1]))
       # [END examples_wordcount_minimal_map]
 
       # [START examples_wordcount_minimal_write]
@@ -563,7 +567,7 @@ def examples_wordcount_debugging(renames):
   # [END example_wordcount_debugging_assert]
 
   output = (filtered_words
-            | 'format' >> beam.Map(lambda (word, c): '%s: %s' % (word, c))
+            | 'format' >> beam.Map(lambda word_c1: '%s: %s' % (word_c1[0], word_c1[1]))
             | 'Write' >> beam.io.WriteToText('gs://my-bucket/counts.txt'))
 
   p.visit(SnippetUtils.RenameFiles(renames))
@@ -875,7 +879,7 @@ def model_datastoreio():
   def to_entity(content):
     entity = entity_pb2.Entity()
     googledatastore.helper.add_key_path(entity.key, kind, str(uuid.uuid4()))
-    googledatastore.helper.add_properties(entity, {'content': unicode(content)})
+    googledatastore.helper.add_properties(entity, {'content': str(content)})
     return entity
 
   entities = musicians | 'To Entity' >> beam.Map(to_entity)
@@ -951,7 +955,7 @@ def model_composite_transform_example(contents, output_path):
       return (pcoll
               | beam.FlatMap(lambda x: re.findall(r'\w+', x))
               | beam.combiners.Count.PerElement()
-              | beam.Map(lambda (word, c): '%s: %s' % (word, c)))
+              | beam.Map(lambda word_c: '%s: %s' % (word_c[0], word_c[1])))
   # [END composite_ptransform_apply_method]
   # [END composite_transform_example]
 
@@ -1018,7 +1022,7 @@ def model_multiple_pcollections_partition(contents, output_path):
   fortieth_percentile = by_decile[4]
   # [END model_multiple_pcollections_partition_40th]
 
-  ([by_decile[d] for d in xrange(10) if d != 4] + [fortieth_percentile]
+  ([by_decile[d] for d in range(10) if d != 4] + [fortieth_percentile]
    | beam.Flatten()
    | beam.io.WriteToText(output_path))
 
@@ -1045,7 +1049,7 @@ def model_group_by_key(contents, output_path):
   grouped_words = words_and_counts | beam.GroupByKey()
   # [END model_group_by_key_transform]
   (grouped_words
-   | 'count words' >> beam.Map(lambda (word, counts): (word, len(counts)))
+   | 'count words' >> beam.Map(lambda word_counts: (word_counts[0], len(word_counts[1])))
    | beam.io.WriteToText(output_path))
   p.run()
 
@@ -1073,7 +1077,8 @@ def model_co_group_by_key_tuple(email_list, phone_list, output_path):
   # ('joe', {'emails': ['joe@example.com', 'joe@gmail.com'], 'phones': ...})
   result = {'emails': emails, 'phones': phones} | beam.CoGroupByKey()
 
-  def join_info((name, info)):
+  def join_info(xxx_todo_changeme):
+    (name, info) = xxx_todo_changeme
     return '; '.join(['%s' % name,
                       '%s' % ','.join(info['emails']),
                       '%s' % ','.join(info['phones'])])
@@ -1126,7 +1131,7 @@ def model_join_using_side_inputs(
 class Keys(beam.PTransform):
 
   def expand(self, pcoll):
-    return pcoll | 'Keys' >> beam.Map(lambda (k, v): k)
+    return pcoll | 'Keys' >> beam.Map(lambda k_v: k_v[0])
 # [END model_library_transforms_keys]
 # pylint: enable=invalid-name
 

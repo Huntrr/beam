@@ -16,6 +16,7 @@
 #
 
 """Unit tests for the util module."""
+from __future__ import unicode_literals
 
 import unittest
 

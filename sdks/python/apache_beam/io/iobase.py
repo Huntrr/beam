@@ -28,6 +28,7 @@ A Sink manages record-oriented data output to a particular kind of sink
 returns a writer object supporting writing records of serialized data to
 the sink.
 """
+from __future__ import unicode_literals
 
 from builtins import str
 from builtins import range

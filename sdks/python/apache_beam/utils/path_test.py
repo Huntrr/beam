@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 """Unit tests for the path module."""
+from __future__ import unicode_literals
 
 import unittest
 

@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 """Unit tests for the write transform."""
+from __future__ import unicode_literals
 
 import logging
 import unittest

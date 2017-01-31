@@ -16,6 +16,7 @@
 #
 
 """End-to-end test for the wordcount example."""
+from __future__ import unicode_literals
 
 import logging
 import unittest

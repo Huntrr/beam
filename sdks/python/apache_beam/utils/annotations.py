@@ -53,6 +53,7 @@ print multiply(5, 6)
 print old_multiply(5,6)
 print exp_multiply(5,6)
 """
+from __future__ import unicode_literals
 
 import warnings
 from functools import partial

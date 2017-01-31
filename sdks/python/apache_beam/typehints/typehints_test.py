@@ -16,6 +16,7 @@
 #
 
 """Unit tests for the type-hint objects and decorators."""
+from __future__ import unicode_literals
 from builtins import next
 from builtins import str
 from builtins import range

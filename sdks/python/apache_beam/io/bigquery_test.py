@@ -16,6 +16,7 @@
 #
 
 """Unit tests for BigQuery sources and sinks."""
+from __future__ import unicode_literals
 
 from builtins import str
 import json
@@ -680,7 +681,7 @@ class TestBigQueryWriter(unittest.TestCase):
     sample_row = {'i': 1, 'b': True, 's': 'abc', 'f': 3.14}
     expected_rows = []
     json_object = bigquery.JsonObject()
-    for k, v in sample_row.items():
+    for k, v in list(sample_row.items()):
       json_object.additionalProperties.append(
           bigquery.JsonObject.AdditionalProperty(
               key=k, value=to_json_value(v)))

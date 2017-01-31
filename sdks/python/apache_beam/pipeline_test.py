@@ -16,7 +16,10 @@
 #
 
 """Unit tests for the Pipeline class."""
+from __future__ import unicode_literals
 
+from builtins import range
+from builtins import object
 import logging
 import platform
 import unittest

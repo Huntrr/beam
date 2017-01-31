@@ -19,6 +19,7 @@
 # cython: overflowcheck=True
 
 """Counters collect the progress of the Worker for reporting to the service."""
+from __future__ import unicode_literals
 
 from builtins import hex
 from past.builtins import basestring
@@ -181,6 +182,6 @@ def get_aggregator_values(aggregator_or_name, counter_dict,
     value_extractor = lambda x: x
   if not isinstance(aggregator_or_name, basestring):
     name = aggregator_or_name.name
-    return {n: value_extractor(c) for n, c in counter_dict.items()
+    return {n: value_extractor(c) for n, c in list(counter_dict.items())
             if n.startswith(USER_COUNTER_PREFIX)
             and n.endswith('-%s' % name)}

@@ -22,6 +22,7 @@ makes calls to remote services. Searching through the code base for @retry
 should find all such places. For this reason even places where retry is not
 needed right now use a @retry.no_retries decorator.
 """
+from __future__ import unicode_literals
 
 from builtins import next
 from builtins import str

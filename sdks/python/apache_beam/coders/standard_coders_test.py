@@ -18,6 +18,7 @@
 """Unit tests for coders that must be consistent across all Beam SDKs.
 """
 from __future__ import print_function
+from __future__ import unicode_literals
 
 import json
 import os.path

@@ -25,6 +25,7 @@ description.
 The pickler module should be used to pickle functions and modules; for values,
 the coders.*PickleCoder classes should be used instead.
 """
+from __future__ import unicode_literals
 
 import base64
 import logging

@@ -17,6 +17,7 @@
 
 """A package containing utilities."""
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
 # We must import path here to support the pattern of referencing utils.path
 # without needing to explicitly import apache_beam.utils.path.

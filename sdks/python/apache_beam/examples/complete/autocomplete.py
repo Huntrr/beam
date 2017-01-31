@@ -18,7 +18,9 @@
 """A workflow emitting the top k most common words for each prefix."""
 
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
+from builtins import range
 import argparse
 import logging
 import re
@@ -51,7 +53,7 @@ def run(argv=None):
    | 'split' >> beam.FlatMap(lambda x: re.findall(r'[A-Za-z\']+', x))
    | 'TopPerPrefix' >> TopPerPrefix(5)
    | 'format' >> beam.Map(
-       lambda (prefix, candidates): '%s: %s' % (prefix, candidates))
+       lambda prefix_candidates: '%s: %s' % (prefix_candidates[0], prefix_candidates[1]))
    | 'write' >> WriteToText(known_args.output))
   p.run()
 
@@ -78,7 +80,8 @@ class TopPerPrefix(beam.PTransform):
             | beam.combiners.Top.LargestPerKey(self._count))
 
 
-def extract_prefixes((word, count)):
+def extract_prefixes(xxx_todo_changeme):
+  (word, count) = xxx_todo_changeme
   for k in range(1, len(word) + 1):
     prefix = word[:k]
     yield prefix, (count, word)

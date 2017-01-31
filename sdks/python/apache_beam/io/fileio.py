@@ -18,6 +18,7 @@
 
 from __future__ import absolute_import
 from __future__ import division
+from __future__ import unicode_literals
 
 from future import standard_library
 standard_library.install_aliases()
@@ -110,7 +111,7 @@ class CompressionTypes(object):
     """Returns the compression type of a file (based on its suffix)"""
     compression_types_by_suffix = {'.bz2': cls.BZIP2, '.gz': cls.GZIP}
     lowercased_path = file_path.lower()
-    for suffix, compression_type in compression_types_by_suffix.items():
+    for suffix, compression_type in list(compression_types_by_suffix.items()):
       if lowercased_path.endswith(suffix):
         return compression_type
     return cls.UNCOMPRESSED
@@ -353,7 +354,7 @@ class _CompressedFile(object):
 
     if self.readable():
       self._read_size = read_size
-      self._read_buffer = io.StringIO()
+      self._read_buffer = io.BytesIO()
       self._read_position = 0
       self._read_eof = False
 

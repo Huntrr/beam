@@ -16,6 +16,7 @@
 #
 
 """Test for the filters example."""
+from __future__ import unicode_literals
 
 import logging
 import unittest

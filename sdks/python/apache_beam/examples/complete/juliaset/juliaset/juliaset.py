@@ -21,7 +21,9 @@ We use the quadratic polinomial f(z) = z*z + c, with c = -.62772 +.42193i
 """
 
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
+from builtins import range
 import argparse
 
 import apache_beam as beam
@@ -33,10 +35,11 @@ def from_pixel(x, y, n):
   return complex(2.0 * x / n - 1.0, 2.0 * y / n - 1.0)
 
 
-def get_julia_set_point_color((x, y), c, n, max_iterations):
+def get_julia_set_point_color(xxx_todo_changeme, c, n, max_iterations):
   """Given an pixel, convert it into a point in our julia set."""
+  (x, y) = xxx_todo_changeme
   z = from_pixel(x, y, n)
-  for i in xrange(max_iterations):
+  for i in range(max_iterations):
     if z.real * z.real + z.imag * z.imag > 2.0:
       break
     z = z * z + c
@@ -107,10 +110,10 @@ def run(argv=None):  # pylint: disable=missing-docstring
   # the output file with an x-coordinate grouping per line.
   # pylint: disable=expression-not-assigned
   (coordinates
-   | 'x coord key' >> beam.Map(lambda (x, y, i): (x, (x, y, i)))
+   | 'x coord key' >> beam.Map(lambda x_y_i: (x_y_i[0], (x_y_i[0], x_y_i[1], x_y_i[2])))
    | 'x coord' >> beam.GroupByKey()
    | 'format' >> beam.Map(
-       lambda (k, coords): ' '.join('(%s, %s, %s)' % coord for coord in coords))
+       lambda k_coords: ' '.join('(%s, %s, %s)' % coord for coord in k_coords[1]))
    | WriteToText(known_args.coordinate_output))
   # pylint: enable=expression-not-assigned
   return p.run()

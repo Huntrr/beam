@@ -16,6 +16,7 @@
 #
 
 """Runtime type checking support."""
+from __future__ import unicode_literals
 
 from past.builtins import basestring
 import collections

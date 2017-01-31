@@ -21,6 +21,7 @@ pipelines, during remote execution.
 """
 
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
 from apache_beam import coders
 from apache_beam.runners.dataflow.native_io import iobase as dataflow_io

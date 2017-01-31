@@ -16,6 +16,7 @@
 #
 
 """Unit tests for the windowed_value."""
+from __future__ import unicode_literals
 
 import copy
 import pickle

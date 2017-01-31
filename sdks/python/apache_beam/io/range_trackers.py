@@ -18,6 +18,7 @@
 """iobase.RangeTracker implementations provided with Dataflow SDK.
 """
 from __future__ import division
+from __future__ import unicode_literals
 
 from builtins import zip
 from past.utils import old_div
@@ -117,7 +118,7 @@ class OffsetRangeTracker(iobase.RangeTracker):
       self._last_record_start = record_start
 
   def try_split(self, split_offset):
-    assert isinstance(split_offset, (int, int))
+    assert isinstance(split_offset, int)
     with self._lock:
       if self._stop_offset == OffsetRangeTracker.OFFSET_INFINITY:
         logging.debug('refusing to split %r at %d: stop position unspecified',

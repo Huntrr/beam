@@ -63,6 +63,7 @@ example, the above function can be decorated::
 
 See apache_beam.typehints.decorators module for more details.
 """
+from __future__ import unicode_literals
 
 from builtins import object
 import logging

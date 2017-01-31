@@ -26,7 +26,10 @@ and score.
 """
 
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
+from builtins import str
+from builtins import object
 import argparse
 import logging
 import sys
@@ -112,7 +115,7 @@ def run(argv=sys.argv[1:]):
    # is registered for the Player class above, a PlayerCoder will be used to
    # encode Player objects as keys for this combine operation.
    | beam.CombinePerKey(sum)
-   | beam.Map(lambda (k, v): '%s,%d' % (k.name, v))
+   | beam.Map(lambda k_v: '%s,%d' % (k_v[0].name, k_v[1]))
    | WriteToText(known_args.output))
   return p.run()
 

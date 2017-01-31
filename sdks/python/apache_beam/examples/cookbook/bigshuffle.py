@@ -18,6 +18,7 @@
 """A BigShuffle workflow."""
 
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
 import argparse
 import binascii
@@ -65,7 +66,7 @@ def run(argv=None):
             | 'group' >> beam.GroupByKey()
             | beam.FlatMap(
                 'format',
-                lambda (key, vals): ['%s%s' % (key, val) for val in vals]))
+                lambda key_vals: ['%s%s' % (key_vals[0], val) for val in key_vals[1]]))
 
   # Write the output using a "Write" transform that has side effects.
   output | WriteToText(known_args.output)

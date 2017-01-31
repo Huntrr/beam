@@ -17,6 +17,7 @@
 
 """Core windowing data structures.
 """
+from __future__ import unicode_literals
 
 # This module is carefully crafted to have optimal performance when
 # compiled whiel still being valid Python.  Care needs to be taken when

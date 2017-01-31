@@ -23,6 +23,7 @@ AsSingleton, AsIter, AsList and AsDict in apache_beam.pvalue.
 """
 
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
 from builtins import object
 from apache_beam import pvalue

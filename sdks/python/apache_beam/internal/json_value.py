@@ -16,6 +16,7 @@
 #
 
 """JSON conversion utility functions."""
+from __future__ import unicode_literals
 
 from past.builtins import basestring
 from apitools.base.py import extra_types
@@ -79,7 +80,7 @@ def to_json_value(obj, with_type=False):
             entries=[to_json_value(o, with_type=with_type) for o in obj]))
   elif isinstance(obj, dict):
     json_object = extra_types.JsonObject()
-    for k, v in obj.items():
+    for k, v in list(obj.items()):
       json_object.properties.append(
           extra_types.JsonObject.Property(
               key=k, value=to_json_value(v, with_type=with_type)))

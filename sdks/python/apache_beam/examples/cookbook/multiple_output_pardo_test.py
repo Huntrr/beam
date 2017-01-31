@@ -16,6 +16,7 @@
 #
 
 """Test for the multiple_output_pardo example."""
+from __future__ import unicode_literals
 
 import logging
 import re

@@ -16,6 +16,7 @@
 #
 
 """Test for the minimal wordcount example."""
+from __future__ import unicode_literals
 
 import collections
 import logging

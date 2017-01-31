@@ -28,6 +28,7 @@ Available classes:
     distribution of a variable to be collected during pipeline execution.
 - MetricName - Namespace and name used to refer to a Metric.
 """
+from __future__ import unicode_literals
 
 
 from builtins import object

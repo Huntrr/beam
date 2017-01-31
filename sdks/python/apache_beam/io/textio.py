@@ -18,6 +18,7 @@
 """A source and a sink for reading from and writing to text files."""
 
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
 from builtins import object
 from apache_beam import coders
@@ -66,7 +67,7 @@ class _TextSource(filebasedsource.FileBasedSource):
 
     @position.setter
     def position(self, value):
-      assert isinstance(value, (int, int))
+      assert isinstance(value, int)
       if value > len(self._data):
         raise ValueError('Cannot set position to %d since it\'s larger than '
                          'size of data %d.', value, len(self._data))
@@ -99,7 +100,7 @@ class _TextSource(filebasedsource.FileBasedSource):
 
   def read_records(self, file_name, range_tracker):
     start_offset = range_tracker.start_position()
-    read_buffer = _TextSource.ReadBuffer('', 0)
+    read_buffer = _TextSource.ReadBuffer(bytes(b''), 0)
 
     with self.open_file(file_name) as file_to_read:
       if start_offset > 0:
@@ -160,9 +161,9 @@ class _TextSource(filebasedsource.FileBasedSource):
 
       # Using find() here is more efficient than a linear scan of the byte
       # array.
-      next_lf = read_buffer.data.find('\n', current_pos)
+      next_lf = read_buffer.data.find(bytes('\n'), current_pos)
       if next_lf >= 0:
-        if next_lf > 0 and read_buffer.data[next_lf - 1] == '\r':
+        if next_lf > 0 and read_buffer.data[next_lf - 1] == bytes(b'\r'):
           # Found a '\r\n'. Accepting that as the next separator.
           return (next_lf - 1, next_lf + 1)
         else:

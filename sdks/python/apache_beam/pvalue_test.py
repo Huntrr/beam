@@ -16,6 +16,7 @@
 #
 
 """Unit tests for the PValue and PCollection classes."""
+from __future__ import unicode_literals
 
 import unittest
 

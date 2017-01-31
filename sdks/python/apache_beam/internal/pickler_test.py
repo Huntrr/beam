@@ -16,6 +16,7 @@
 #
 
 """Unit tests for the pickler module."""
+from __future__ import unicode_literals
 
 from builtins import range
 import unittest

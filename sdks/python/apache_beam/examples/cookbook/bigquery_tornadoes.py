@@ -32,6 +32,7 @@ represents table rows as plain Python dictionaries.
 """
 
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
 import argparse
 import logging
@@ -57,7 +58,7 @@ def count_tornadoes(input_data):
               lambda row: [(int(row['month']), 1)] if row['tornado'] else [])
           | 'monthly count' >> beam.CombinePerKey(sum)
           | 'format' >> beam.Map(
-              lambda (k, v): {'month': k, 'tornado_count': v}))
+              lambda k_v: {'month': k_v[0], 'tornado_count': k_v[1]}))
 
 
 def run(argv=None):

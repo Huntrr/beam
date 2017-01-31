@@ -18,6 +18,7 @@
 """Unit tests for the DisplayData API."""
 
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
 from builtins import str
 from datetime import datetime

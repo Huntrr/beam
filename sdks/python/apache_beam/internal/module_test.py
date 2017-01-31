@@ -16,6 +16,7 @@
 #
 
 """Module used to define functions and classes used by the coder unit tests."""
+from __future__ import unicode_literals
 
 from builtins import object
 import re

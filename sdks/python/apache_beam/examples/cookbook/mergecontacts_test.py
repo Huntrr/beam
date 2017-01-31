@@ -16,6 +16,7 @@
 #
 
 """Test for the mergecontacts example."""
+from __future__ import unicode_literals
 
 import logging
 import tempfile

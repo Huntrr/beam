@@ -16,6 +16,7 @@
 #
 
 """Unit tests for the json_value module."""
+from __future__ import unicode_literals
 
 import unittest
 

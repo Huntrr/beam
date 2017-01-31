@@ -16,6 +16,7 @@
 #
 
 """Unit tests for the triggering classes."""
+from __future__ import unicode_literals
 
 from builtins import zip
 from builtins import range
@@ -395,12 +396,12 @@ class TriggerPipelineTest(unittest.TestCase):
               | beam.GroupByKey()
               | beam.Map(lambda k_v: ('%s-%s' % (k_v[0], len(k_v[1])), set(k_v[1]))))
     assert_that(result, equal_to(
-        iter({
+        iter(list({
             'A-5': {1, 2, 3, 4, 5},
             # A-10, A-11 never emitted due to AfterCount(3) never firing.
             'B-4': {6, 7, 8, 9},
             'B-3': {10, 15, 16},
-        }.items())))
+        }.items()))))
 
 
 class TranscriptTest(unittest.TestCase):

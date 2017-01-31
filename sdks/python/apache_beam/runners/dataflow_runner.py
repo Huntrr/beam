@@ -20,6 +20,7 @@
 The runner will create a JSON description of the job graph and then submit it
 to the Dataflow Service for remote execution by a worker.
 """
+from __future__ import unicode_literals
 
 from future import standard_library
 standard_library.install_aliases()

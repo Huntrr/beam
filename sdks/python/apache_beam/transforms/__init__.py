@@ -16,6 +16,7 @@
 #
 
 """PTransform and descendants."""
+from __future__ import unicode_literals
 
 # pylint: disable=wildcard-import
 from apache_beam.transforms import combiners

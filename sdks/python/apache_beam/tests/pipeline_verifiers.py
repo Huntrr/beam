@@ -21,6 +21,7 @@ A set of verifiers that are used in end-to-end tests to verify state/output
 of test pipeline job. Customized verifier should extend
 `hamcrest.core.base_matcher.BaseMatcher` and override _matches.
 """
+from __future__ import unicode_literals
 
 import hashlib
 import logging

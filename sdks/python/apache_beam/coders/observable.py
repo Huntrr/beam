@@ -17,6 +17,7 @@
 
 
 """Observable base class for iterables."""
+from __future__ import unicode_literals
 
 
 from builtins import object

@@ -51,6 +51,7 @@ shared staging location.
 TODO(silviuc): Should we allow several setup packages?
 TODO(silviuc): We should allow customizing the exact command for setup build.
 """
+from __future__ import unicode_literals
 
 import glob
 import logging

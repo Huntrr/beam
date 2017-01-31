@@ -18,8 +18,10 @@
 """The result of evaluating an AppliedPTransform with a TransformEvaluator."""
 
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
 
+from builtins import object
 class TransformResult(object):
   """The result of evaluating an AppliedPTransform with a TransformEvaluator."""
 

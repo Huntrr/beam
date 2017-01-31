@@ -18,7 +18,9 @@
 """Manages watermarks of PCollections and AppliedPTransforms."""
 
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
+from builtins import object
 import threading
 
 from apache_beam import pipeline
@@ -44,12 +46,12 @@ class WatermarkManager(object):
       self._transform_to_watermarks[root_transform] = TransformWatermarks(
           self._clock)
 
-    for consumers in value_to_consumers.values():
+    for consumers in list(value_to_consumers.values()):
       for consumer in consumers:
         self._transform_to_watermarks[consumer] = TransformWatermarks(
             self._clock)
 
-    for consumers in value_to_consumers.values():
+    for consumers in list(value_to_consumers.values()):
       for consumer in consumers:
         self._update_input_transform_watermarks(consumer)
 
@@ -120,7 +122,7 @@ class WatermarkManager(object):
     assert isinstance(applied_ptransform, pipeline.AppliedPTransform)
     tw = self.get_watermarks(applied_ptransform)
     if tw.refresh():
-      for pval in applied_ptransform.outputs.values():
+      for pval in list(applied_ptransform.outputs.values()):
         if isinstance(pval, pvalue.DoOutputsTuple):
           pvals = (v for v in pval)
         else:
@@ -133,7 +135,7 @@ class WatermarkManager(object):
 
   def extract_fired_timers(self):
     all_timers = []
-    for applied_ptransform, tw in self._transform_to_watermarks.iteritems():
+    for applied_ptransform, tw in list(self._transform_to_watermarks.items()):
       if tw.extract_fired_timers():
         all_timers.append(applied_ptransform)
     return all_timers

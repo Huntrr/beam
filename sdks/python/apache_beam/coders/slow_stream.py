@@ -16,6 +16,7 @@
 #
 
 """A pure Python implementation of stream.pyx."""
+from __future__ import unicode_literals
 
 from builtins import chr
 from builtins import object

@@ -16,6 +16,7 @@
 #
 
 """Test for the top wikipedia sessions example."""
+from __future__ import unicode_literals
 
 import json
 import unittest

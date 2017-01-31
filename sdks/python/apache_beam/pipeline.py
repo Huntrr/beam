@@ -45,7 +45,10 @@ Typical usage:
 """
 
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
+from builtins import bytes, str
+from builtins import object
 import collections
 import logging
 import os
@@ -392,7 +395,7 @@ class AppliedPTransform(object):
     is not a producer is one that returns its inputs instead.)
     """
     return bool(self.parts) or all(
-        pval.producer is not self for pval in self.outputs.values())
+        pval.producer is not self for pval in list(self.outputs.values()))
 
   def visit(self, visitor, pipeline, visited):
     """Visits all nodes reachable from the current node."""
@@ -431,7 +434,7 @@ class AppliedPTransform(object):
     # output of such a transform is the containing DoOutputsTuple, not the
     # PCollection inside it. Without the code below a tagged PCollection will
     # not be marked as visited while visiting its producer.
-    for pval in self.outputs.values():
+    for pval in list(self.outputs.values()):
       if isinstance(pval, pvalue.DoOutputsTuple):
         pvals = (v for v in pval)
       else:

@@ -25,7 +25,12 @@ produced when the pipeline gets executed.
 """
 
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
+from builtins import str
+from builtins import hex
+from past.builtins import basestring
+from builtins import object
 import collections
 import itertools
 

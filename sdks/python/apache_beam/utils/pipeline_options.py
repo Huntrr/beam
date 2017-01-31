@@ -16,6 +16,7 @@
 #
 
 """Pipeline options obtained from command line parsing."""
+from __future__ import unicode_literals
 
 from builtins import object
 import argparse
@@ -95,7 +96,7 @@ class PipelineOptions(HasDisplayData):
       A PipelineOptions object representing the given arguments.
     """
     flags = []
-    for k, v in options.items():
+    for k, v in list(options.items()):
       if isinstance(v, bool):
         if v:
           flags.append('--%s' % k)

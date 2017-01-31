@@ -16,6 +16,7 @@
 #
 
 """Tests for consumer_tracking_pipeline_visitor."""
+from __future__ import unicode_literals
 
 import logging
 import unittest

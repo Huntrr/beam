@@ -21,6 +21,7 @@ This module contains nose plugin hooks that configures Beam tests which
 includes ValidatesRunner test and E2E integration test.
 
 """
+from __future__ import unicode_literals
 
 from nose.plugins import Plugin
 

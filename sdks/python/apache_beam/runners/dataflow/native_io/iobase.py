@@ -17,7 +17,9 @@
 
 """Dataflow native sources and sinks.
 """
+from __future__ import unicode_literals
 
+from builtins import object
 import logging
 
 from apache_beam import pvalue
@@ -28,7 +30,7 @@ from apache_beam.transforms.display import HasDisplayData
 def _dict_printable_fields(dict_object, skip_fields):
   """Returns a list of strings for the interesting fields of a dict."""
   return ['%s=%r' % (name, value)
-          for name, value in dict_object.iteritems()
+          for name, value in list(dict_object.items())
           # want to output value 0 but not None nor []
           if (value or value == 0)
           and name not in skip_fields]

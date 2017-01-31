@@ -101,6 +101,7 @@ TableCell: Holds the value for one cell (or field).  Has one attribute,
 """
 
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
 from builtins import str
 from builtins import zip
@@ -201,7 +202,7 @@ class TableRowJsonCoder(coders.Coder):
     od = json.loads(
         encoded_table_row, object_pairs_hook=collections.OrderedDict)
     return bigquery.TableRow(
-        f=[bigquery.TableCell(v=to_json_value(e)) for e in od.values()])
+        f=[bigquery.TableCell(v=to_json_value(e)) for e in list(od.values())])
 
 
 def parse_table_schema_from_json(schema_string):
@@ -1010,7 +1011,7 @@ class BigQueryWrapper(object):
     final_rows = []
     for row in rows:
       json_object = bigquery.JsonObject()
-      for k, v in row.items():
+      for k, v in list(row.items()):
         json_object.additionalProperties.append(
             bigquery.JsonObject.AdditionalProperty(
                 key=k, value=to_json_value(v)))

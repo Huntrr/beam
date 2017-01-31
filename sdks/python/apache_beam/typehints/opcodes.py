@@ -26,6 +26,7 @@ are handled inline rather than here.
 """
 from __future__ import absolute_import
 from __future__ import division
+from __future__ import unicode_literals
 from past.utils import old_div
 import types
 

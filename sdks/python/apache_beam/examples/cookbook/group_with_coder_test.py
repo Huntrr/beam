@@ -16,6 +16,7 @@
 #
 
 """Test for the custom coders example."""
+from __future__ import unicode_literals
 
 import logging
 import tempfile

@@ -24,6 +24,7 @@ Cells depend on a 'dirty-bit' in the CellCommitState class that tracks whether
 a cell's updates have been committed.
 """
 from __future__ import division
+from __future__ import unicode_literals
 
 from past.utils import old_div
 from builtins import object

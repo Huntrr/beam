@@ -16,6 +16,7 @@
 #
 
 """Tests for the Observable mixin class."""
+from __future__ import unicode_literals
 
 import logging
 import unittest

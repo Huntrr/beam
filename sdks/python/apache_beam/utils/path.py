@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 """Utilities for dealing with file paths."""
+from __future__ import unicode_literals
 
 import os
 

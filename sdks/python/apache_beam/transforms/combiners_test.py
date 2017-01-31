@@ -17,6 +17,7 @@
 
 """Unit tests for our libraries of combine PTransforms."""
 from __future__ import division
+from __future__ import unicode_literals
 
 from builtins import str
 from builtins import range
@@ -304,7 +305,7 @@ class CombineTest(unittest.TestCase):
     def matcher():
       def match(actual):
         equal_to([1])([len(actual)])
-        equal_to(pairs)(iter(actual[0].items()))
+        equal_to(pairs)(iter(list(actual[0].items())))
       return match
     assert_that(result, matcher())
     pipeline.run()

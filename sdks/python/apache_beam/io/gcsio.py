@@ -19,6 +19,7 @@
 This library evolved from the Google App Engine GCS client available at
 https://github.com/GoogleCloudPlatform/appengine-gcs-client.
 """
+from __future__ import unicode_literals
 
 from future import standard_library
 standard_library.install_aliases()

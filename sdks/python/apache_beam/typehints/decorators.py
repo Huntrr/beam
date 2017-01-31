@@ -82,6 +82,7 @@ this module defines two functions: 'enable_run_time_type_checking' and
 properly it must appear at the top of the module where all functions are
 defined, or before importing a module containing type-hinted functions.
 """
+from __future__ import unicode_literals
 
 from builtins import next
 from builtins import zip

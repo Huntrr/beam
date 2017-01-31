@@ -16,6 +16,7 @@
 #
 
 """Utility methods for testing"""
+from __future__ import unicode_literals
 
 import imp
 from mock import Mock, patch

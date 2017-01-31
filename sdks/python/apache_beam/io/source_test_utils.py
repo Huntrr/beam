@@ -44,6 +44,7 @@ For example usages, see the unit tests of modules such as
  * apache_beam.io.avroio_test.py
 """
 from __future__ import division
+from __future__ import unicode_literals
 
 from builtins import str
 from builtins import next

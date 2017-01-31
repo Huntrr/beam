@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 """Cross-platform utilities for creating subprocesses."""
+from __future__ import unicode_literals
 
 import platform
 import subprocess

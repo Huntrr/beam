@@ -16,6 +16,7 @@
 #
 
 """Test for the estimate_pi example."""
+from __future__ import unicode_literals
 
 import logging
 import unittest

@@ -25,6 +25,7 @@ for more details.
 For an example implementation of ``FileBasedSource`` see ``avroio.AvroSource``.
 """
 from __future__ import division
+from __future__ import unicode_literals
 
 from builtins import str
 from past.builtins import basestring
@@ -248,11 +249,11 @@ class _SingleFileSource(iobase.BoundedSource):
 
   def __init__(self, file_based_source, file_name, start_offset, stop_offset,
                min_bundle_size=0, splittable=True):
-    if not isinstance(start_offset, (int, int)):
+    if not isinstance(start_offset, int):
       raise TypeError(
           'start_offset must be a number. Received: %r' % start_offset)
     if stop_offset != range_trackers.OffsetRangeTracker.OFFSET_INFINITY:
-      if not isinstance(stop_offset, (int, int)):
+      if not isinstance(stop_offset, int):
         raise TypeError(
             'stop_offset must be a number. Received: %r' % stop_offset)
       if start_offset >= stop_offset:

@@ -16,6 +16,7 @@
 #
 
 """A package defining several input sources and output sinks."""
+from __future__ import unicode_literals
 
 # pylint: disable=wildcard-import
 from apache_beam.io.avroio import *
