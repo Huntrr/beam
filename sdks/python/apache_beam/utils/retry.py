@@ -68,7 +68,7 @@ class FuzzedExponentialIntervals(object):
     self._num_retries = num_retries
     self._factor = factor
     if not 0 <= fuzz <= 1:
-      raise ValueError('Fuzz parameter expected to be in [0, 1] range.')
+      raise ValueError(str(u'Fuzz parameter expected to be in [0, 1] range.'))
     self._fuzz = fuzz
     self._max_delay_secs = max_delay_secs
 
@@ -182,22 +182,29 @@ def with_exponential_backoff(
               sleep_interval = next(retry_intervals)
             except StopIteration:
               # Re-raise the original exception since we finished the retries.
-              raise exn, None, exn_traceback
+              if hasattr(exn, 'with_traceback'):
+                raise exn.with_traceback(exn_traceback)
+              else:
+                raise exn, None, exn_traceback
 
-            logger(
-                'Retry with exponential backoff: waiting for %s seconds before '
-                'retrying %s because we caught exception: %s '
-                'Traceback for above exception (most recent call last):\n%s',
-                sleep_interval,
-                getattr(fun, '__name__', str(fun)),
-                ''.join(traceback.format_exception_only(exn.__class__, exn)),
-                ''.join(traceback.format_tb(exn_traceback)))
+            logger(str(
+                u'Retry with exponential backoff: waiting for %s seconds '
+                'before retrying %s because we caught exception: %s '
+                'Traceback for above exception (most recent call last):\n%s'),
+                   sleep_interval,
+                   getattr(fun, '__name__', str(fun)),
+                   ''.join(traceback.format_exception_only(exn.__class__, exn)),
+                   ''.join(traceback.format_tb(exn_traceback)))
             clock.sleep(sleep_interval)
           finally:
             # Traceback objects in locals can cause reference cycles that will
             # prevent garbage collection. Clear it now since we do not need
             # it anymore.
-            sys.exc_clear()
+            try:
+              sys.exc_clear()
+            except:
+              # Python 3 does not need sys.exc_clear()
+              pass
             exn_traceback = None
 
     return wrapper

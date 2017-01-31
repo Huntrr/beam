@@ -170,11 +170,11 @@ class MetricsContainer(object):
       filter = lambda v: True
     counters = {MetricKey(self.step_name, k): v.get_cumulative()
                 for k, v in list(self.counters.items())
-                if list(filter(v))}
+                if filter(v)}
 
     distributions = {MetricKey(self.step_name, k): v.get_cumulative()
                      for k, v in list(self.distributions.items())
-                     if list(filter(v))}
+                     if filter(v)}
 
     return MetricUpdates(counters, distributions)
 
