@@ -17,6 +17,7 @@
 
 """Unit tests for the util module."""
 from __future__ import unicode_literals
+from builtins import str
 
 import unittest
 
@@ -29,10 +30,10 @@ class UtilTest(unittest.TestCase):
 
   def test_remove_objects_from_args(self):
     args, kwargs, objs = remove_objects_from_args(
-        [1, 'a'], {'x': 1, 'y': 3.14}, (str, float))
+        [1, str(u'a')], {'x': 1, 'y': 3.14}, (str, float))
     self.assertEquals([1, ArgumentPlaceholder()], args)
     self.assertEquals({'x': 1, 'y': ArgumentPlaceholder()}, kwargs)
-    self.assertEquals(['a', 3.14], objs)
+    self.assertEquals([str(u'a'), 3.14], objs)
 
   def test_remove_objects_from_args_nothing_to_remove(self):
     args, kwargs, objs = remove_objects_from_args(

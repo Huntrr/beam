@@ -20,6 +20,8 @@ from future import standard_library
 standard_library.install_aliases()
 from builtins import chr
 from builtins import range
+from builtins import str
+from builtins import bytes
 import binascii
 import io
 import glob
@@ -29,6 +31,7 @@ import os
 import pickle
 import random
 import shutil
+import six
 import tempfile
 import unittest
 
@@ -42,7 +45,6 @@ from apache_beam.io.tfrecordio import ReadFromTFRecord
 from apache_beam.io.tfrecordio import WriteToTFRecord
 from apache_beam.runners import DirectRunner
 import crcmod
-
 
 try:
   import tensorflow as tf  # pylint: disable=import-error
@@ -59,10 +61,10 @@ except ImportError:
 # >>> with open('/tmp/python_foo.tfrecord', 'rb') as f:
 # ...   data =  base64.b64encode(f.read())
 # ...   print data
-FOO_RECORD_BASE64 = 'AwAAAAAAAACwmUkOZm9vYYq+/g=='
+FOO_RECORD_BASE64 = bytes(b'AwAAAAAAAACwmUkOZm9vYYq+/g==')
 
 # Same as above but containing two records ['foo', 'bar']
-FOO_BAR_RECORD_BASE64 = 'AwAAAAAAAACwmUkOZm9vYYq+/gMAAAAAAAAAsJlJDmJhckYA5cg='
+FOO_BAR_RECORD_BASE64 = bytes(b'AwAAAAAAAACwmUkOZm9vYYq+/gMAAAAAAAAAsJlJDmJhckYA5cg=')
 
 
 class TestTFRecordUtil(unittest.TestCase):
@@ -71,15 +73,15 @@ class TestTFRecordUtil(unittest.TestCase):
     self.record = binascii.a2b_base64(FOO_RECORD_BASE64)
 
   def _as_file_handle(self, contents):
-    result = io.StringIO()
+    result = io.BytesIO()
     result.write(contents)
-    result.reset()
+    result.seek(0)
     return result
 
   def _increment_value_at_index(self, value, index):
     l = list(value)
-    l[index] = chr(ord(l[index]) + 1)
-    return ''.join(l)
+    l[index] = six.int2byte(ord(l[index]) + 1)
+    return bytes(b'').join(l)
 
   def _test_error(self, record, error_text):
     with self.assertRaises(ValueError) as context:
@@ -87,42 +89,45 @@ class TestTFRecordUtil(unittest.TestCase):
     self.assertIn(error_text, context.exception.message)
 
   def test_masked_crc32c(self):
-    self.assertEqual(0xfd7fffa, _TFRecordUtil._masked_crc32c('\x00' * 32))
-    self.assertEqual(0xf909b029, _TFRecordUtil._masked_crc32c('\xff' * 32))
+    self.assertEqual(0xfd7fffa,
+                     _TFRecordUtil._masked_crc32c(bytes(b'\x00') * 32))
+    self.assertEqual(0xf909b029,
+                     _TFRecordUtil._masked_crc32c(bytes(b'\xff') * 32))
     self.assertEqual(0xfebe8a61, _TFRecordUtil._masked_crc32c('foo'))
     self.assertEqual(
         0xe4999b0,
-        _TFRecordUtil._masked_crc32c('\x03\x00\x00\x00\x00\x00\x00\x00'))
+        _TFRecordUtil._masked_crc32c(
+            bytes(b'\x03\x00\x00\x00\x00\x00\x00\x00')))
 
   def test_masked_crc32c_crcmod(self):
     crc32c_fn = crcmod.predefined.mkPredefinedCrcFun('crc-32c')
     self.assertEqual(
         0xfd7fffa,
         _TFRecordUtil._masked_crc32c(
-            '\x00' * 32, crc32c_fn=crc32c_fn))
+            bytes(b'\x00') * 32, crc32c_fn=crc32c_fn))
     self.assertEqual(
         0xf909b029,
         _TFRecordUtil._masked_crc32c(
-            '\xff' * 32, crc32c_fn=crc32c_fn))
+            bytes(b'\xff') * 32, crc32c_fn=crc32c_fn))
     self.assertEqual(
         0xfebe8a61, _TFRecordUtil._masked_crc32c(
-            'foo', crc32c_fn=crc32c_fn))
+            bytes(b'foo'), crc32c_fn=crc32c_fn))
     self.assertEqual(
         0xe4999b0,
         _TFRecordUtil._masked_crc32c(
-            '\x03\x00\x00\x00\x00\x00\x00\x00', crc32c_fn=crc32c_fn))
+            bytes(b'\x03\x00\x00\x00\x00\x00\x00\x00'), crc32c_fn=crc32c_fn))
 
   def test_write_record(self):
-    file_handle = io.StringIO()
-    _TFRecordUtil.write_record(file_handle, 'foo')
+    file_handle = io.BytesIO()
+    _TFRecordUtil.write_record(file_handle, bytes(b'foo'))
     self.assertEqual(self.record, file_handle.getvalue())
 
   def test_read_record(self):
     actual = _TFRecordUtil.read_record(self._as_file_handle(self.record))
-    self.assertEqual('foo', actual)
+    self.assertEqual(bytes(b'foo'), actual)
 
   def test_read_record_invalid_record(self):
-    self._test_error('bar', 'Not a valid TFRecord. Fewer than 12 bytes')
+    self._test_error(bytes(b'bar'), 'Not a valid TFRecord. Fewer than 12 bytes')
 
   def test_read_record_invalid_length_mask(self):
     record = self._increment_value_at_index(self.record, 9)
@@ -133,10 +138,10 @@ class TestTFRecordUtil(unittest.TestCase):
     self._test_error(record, 'Mismatch of data mask')
 
   def test_compatibility_read_write(self):
-    for record in ['', 'blah', 'another blah']:
-      file_handle = io.StringIO()
+    for record in [bytes(b''), bytes(b'blah'), bytes(b'another blah')]:
+      file_handle = io.BytesIO()
       _TFRecordUtil.write_record(file_handle, record)
-      file_handle.reset()
+      file_handle.seek(0)
       actual = _TFRecordUtil.read_record(file_handle)
       self.assertEqual(record, actual)
 
@@ -181,7 +186,7 @@ class TestTFRecordSink(_TestCaseWithTempDirCleanUp):
         num_shards=0,
         shard_name_template=None,
         compression_type=fileio.CompressionTypes.UNCOMPRESSED)
-    self._write_lines(sink, path, ['foo'])
+    self._write_lines(sink, path, [bytes(b'foo')])
 
     with open(path, 'r') as f:
       self.assertEqual(f.read(), record)
@@ -196,7 +201,7 @@ class TestTFRecordSink(_TestCaseWithTempDirCleanUp):
         num_shards=0,
         shard_name_template=None,
         compression_type=fileio.CompressionTypes.UNCOMPRESSED)
-    self._write_lines(sink, path, ['foo', 'bar'])
+    self._write_lines(sink, path, [bytes(b'foo'), bytes(b'bar')])
 
     with open(path, 'r') as f:
       self.assertEqual(f.read(), record)
@@ -323,7 +328,7 @@ class TestEnd2EndWriteAndRead(_TestCaseWithTempDirCleanUp):
   def create_inputs(self):
     input_array = [[random.random() - 0.5 for _ in range(15)]
                    for _ in range(12)]
-    memfile = io.StringIO()
+    memfile = io.BytesIO()
     pickle.dump(input_array, memfile)
     return memfile.getvalue()
 

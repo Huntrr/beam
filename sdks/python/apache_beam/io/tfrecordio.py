@@ -71,7 +71,6 @@ class _TFRecordUtil(object):
     Returns:
       Masked crc32c checksum.
     """
-
     crc = crc32c_fn(value)
     return (((crc >> 15) | (crc << 17)) + 0xa282ead8) & 0xffffffff
 
@@ -90,11 +89,11 @@ class _TFRecordUtil(object):
       value: A string content of the record.
     """
     encoded_length = struct.pack('<Q', len(value))
-    file_handle.write('{}{}{}{}'.format(
+    file_handle.write(bytes(b'').join([
         encoded_length,
         struct.pack('<I', cls._masked_crc32c(encoded_length)),  #
         value,
-        struct.pack('<I', cls._masked_crc32c(value))))
+        struct.pack('<I', cls._masked_crc32c(value))]))
 
   @classmethod
   def read_record(cls, file_handle):
