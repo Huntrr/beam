@@ -20,6 +20,7 @@ from __future__ import division
 from __future__ import unicode_literals
 
 from builtins import str
+from builtins import bytes
 from past.utils import old_div
 import array
 import copy
@@ -166,7 +167,8 @@ class OffsetRangeTrackerTest(unittest.TestCase):
 class GroupedShuffleRangeTrackerTest(unittest.TestCase):
 
   def bytes_to_position(self, bytes_array):
-    return array.array('B', bytes_array).tostring()
+    binary_array = array.array(bytes(b'B'), bytes_array)
+    return binary_array.tostring()
 
   def test_try_return_record_in_infinite_range(self):
     tracker = range_trackers.GroupedShuffleRangeTracker('', '')
@@ -458,82 +460,104 @@ class LexicographicKeyRangeTrackerTest(unittest.TestCase):
     self.assertEqual(computed_key, key, str(locals()))
 
   def test_key_to_fraction_no_endpoints(self):
-    self._check(key='\x07', fraction=old_div(7,256.))
-    self._check(key='\xFF', fraction=old_div(255,256.))
-    self._check(key='\x01\x02\x03', fraction=old_div((2**16 + 2**9 + 3), (2.0**24)))
+    self._check(key=bytes(b'\x07'), fraction=old_div(7,256.))
+    self._check(key=bytes(b'\xFF'), fraction=old_div(255,256.))
+    self._check(key=bytes(b'\x01\x02\x03'),
+                fraction=old_div((2**16 + 2**9 + 3), (2.0**24)))
 
   def test_key_to_fraction(self):
-    self._check(key='\x87', start='\x80', fraction=old_div(7,128.))
-    self._check(key='\x07', end='\x10', fraction=old_div(7,16.))
-    self._check(key='\x47', start='\x40', end='\x80', fraction=old_div(7,64.))
-    self._check(key='\x47\x80', start='\x40', end='\x80', fraction=old_div(15,128.))
+    self._check(key=bytes(b'\x87'), start=bytes(b'\x80'),
+                fraction=old_div(7,128.))
+    self._check(key=bytes(b'\x07'), end=bytes(b'\x10'),
+                fraction=old_div(7,16.))
+    self._check(key=bytes(b'\x47'), start=bytes(b'\x40'),
+                end=bytes(b'\x80'), fraction=old_div(7,64.))
+    self._check(key=bytes(b'\x47\x80'), start=bytes(b'\x40'),
+                end=bytes(b'\x80'), fraction=old_div(15,128.))
 
   def test_key_to_fraction_common_prefix(self):
     self._check(
-        key='a' * 100 + 'b', start='a' * 100 + 'a', end='a' * 100 + 'c',
+        key=bytes(b'a') * 100 + bytes(b'b'),
+        start=bytes(b'a') * 100 + bytes(b'a'),
+        end=bytes(b'a') * 100 + bytes(b'c'),
         fraction=0.5)
     self._check(
-        key='a' * 100 + 'b', start='a' * 100 + 'a', end='a' * 100 + 'e',
+        key=bytes(b'a') * 100 + bytes(b'b'),
+        start=bytes(b'a') * 100 + bytes(b'a'),
+        end=bytes(b'a') * 100 + bytes(b'e'),
         fraction=0.25)
     self._check(
-        key='\xFF' * 100 + '\x40', start='\xFF' * 100, end=None, fraction=0.25)
-    self._check(key='foob',
-                start='fooa\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFE',
-                end='foob\x00\x00\x00\x00\x00\x00\x00\x00\x02',
+        key=bytes(b'\xFF') * 100 + bytes(b'\x40'),
+        start=bytes(b'\xFF') * 100, end=None, fraction=0.25)
+    self._check(key=bytes(b'foob'),
+                start=bytes(b'fooa\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFE'),
+                end=bytes(b'foob\x00\x00\x00\x00\x00\x00\x00\x00\x02'),
                 fraction=0.5)
 
   def test_tiny(self):
-    self._check(fraction=.5**20, key='\0\0\x10')
-    self._check(fraction=.5**20, start='a', end='b', key='a\0\0\x10')
-    self._check(fraction=.5**20, start='a', end='c', key='a\0\0\x20')
-    self._check(fraction=.5**20, start='xy_a', end='xy_c', key='xy_a\0\0\x20')
-    self._check(fraction=.5**20, start='\xFF\xFF\x80',
-                key='\xFF\xFF\x80\x00\x08')
+    self._check(fraction=.5**20, key=bytes(b'\0\0\x10'))
+    self._check(fraction=.5**20, start=bytes(b'a'),
+                end=bytes(b'b'), key=bytes(b'a\0\0\x10'))
+    self._check(fraction=.5**20, start=bytes(b'a'),
+                end=bytes(b'c'), key=bytes(b'a\0\0\x20'))
+    self._check(fraction=.5**20, start=bytes(b'xy_a'),
+                end=bytes(b'xy_c'), key=bytes(b'xy_a\0\0\x20'))
+    self._check(fraction=.5**20, start=bytes(b'\xFF\xFF\x80'),
+                key=bytes(b'\xFF\xFF\x80\x00\x08'))
     self._check(fraction=old_div(.5**20, 3),
-                start='xy_a',
-                end='xy_c',
-                key='xy_a\x00\x00\n\xaa\xaa\xaa\xaa\xaa',
+                start=bytes(b'xy_a'),
+                end=bytes(b'xy_c'),
+                key=bytes(b'xy_a\x00\x00\n\xaa\xaa\xaa\xaa\xaa'),
                 delta=1e-15)
-    self._check(fraction=.5**100, key='\0' * 12 + '\x10')
+    self._check(fraction=.5**100, key=bytes(b'\0') * 12 + bytes(b'\x10'))
 
   def test_lots(self):
     for fraction in (0, 1, .5, .75, old_div(7.,512), 1 - old_div(7.,4096)):
       self._check(fraction)
-      self._check(fraction, start='\x01')
-      self._check(fraction, end='\xF0')
-      self._check(fraction, start='0x75', end='\x76')
-      self._check(fraction, start='0x75', end='\x77')
-      self._check(fraction, start='0x75', end='\x78')
-      self._check(fraction, start='a' * 100 + '\x80', end='a' * 100 + '\x81')
-      self._check(fraction, start='a' * 101 + '\x80', end='a' * 101 + '\x81')
-      self._check(fraction, start='a' * 102 + '\x80', end='a' * 102 + '\x81')
+      self._check(fraction, start=bytes(b'\x01'))
+      self._check(fraction, end=bytes(b'\xF0'))
+      self._check(fraction, start=bytes(b'0x75'), end=bytes(b'\x76'))
+      self._check(fraction, start=bytes(b'0x75'), end=bytes(b'\x77'))
+      self._check(fraction, start=bytes(b'0x75'), end=bytes(b'\x78'))
+      self._check(fraction, start=bytes(b'a') * 100 + bytes(b'\x80'),
+                  end=bytes(b'a') * 100 + bytes(b'\x81'))
+      self._check(fraction, start=bytes(b'a') * 101 + bytes(b'\x80'),
+                  end=bytes(b'a') * 101 + bytes(b'\x81'))
+      self._check(fraction, start=bytes(b'a') * 102 + bytes(b'\x80'),
+                  end=bytes(b'a') * 102 + bytes(b'\x81'))
     for fraction in (.3, old_div(1,3.), old_div(1,math.e), .001, 1e-30, .99, .999999):
       self._check(fraction, delta=1e-14)
-      self._check(fraction, start='\x01', delta=1e-14)
-      self._check(fraction, end='\xF0', delta=1e-14)
-      self._check(fraction, start='0x75', end='\x76', delta=1e-14)
-      self._check(fraction, start='0x75', end='\x77', delta=1e-14)
-      self._check(fraction, start='0x75', end='\x78', delta=1e-14)
-      self._check(fraction, start='a' * 100 + '\x80', end='a' * 100 + '\x81',
+      self._check(fraction, start=bytes(b'\x01'), delta=1e-14)
+      self._check(fraction, end=bytes(b'\xF0'), delta=1e-14)
+      self._check(fraction, start=bytes(b'0x75'),
+                  end=bytes(b'\x76'), delta=1e-14)
+      self._check(fraction, start=bytes(b'0x75'),
+                  end=bytes(b'\x77'), delta=1e-14)
+      self._check(fraction, start=bytes(b'0x75'),
+                  end=bytes(b'\x78'), delta=1e-14)
+      self._check(fraction, start=bytes(b'a') * 100 + bytes(b'\x80'),
+                  end=bytes(b'a') * 100 + bytes(b'\x81'),
                   delta=1e-14)
 
   def test_good_prec(self):
     # There should be about 7 characters (~53 bits) of precision
     # (beyond the common prefix of start and end).
-    self._check(old_div(1, math.e), start='abc_abc', end='abc_xyz',
-                key='abc_i\xe0\xf4\x84\x86\x99\x96',
+    self._check(old_div(1, math.e), start=bytes(b'abc_abc'),
+                end=bytes(b'abc_xyz'),
+                key=bytes(b'abc_i\xe0\xf4\x84\x86\x99\x96'),
                 delta=1e-15)
     # This remains true even if the start and end keys are given to
     # high precision.
     self._check(old_div(1, math.e),
-                start='abcd_abc\0\0\0\0\0_______________abc',
-                end='abcd_xyz\0\0\0\0\0\0_______________abc',
-                key='abcd_i\xe0\xf4\x84\x86\x99\x96',
+                start=bytes(b'abcd_abc\0\0\0\0\0_______________abc'),
+                end=bytes(b'abcd_xyz\0\0\0\0\0\0_______________abc'),
+                key=bytes(b'abcd_i\xe0\xf4\x84\x86\x99\x96'),
                 delta=1e-15)
     # For very small fractions, however, higher precision is used to
     # accurately represent small increments in the keyspace.
-    self._check(old_div(1e-20, math.e), start='abcd_abc', end='abcd_xyz',
-                key='abcd_abc\x00\x00\x00\x00\x00\x01\x91#\x172N\xbb',
+    self._check(old_div(1e-20, math.e), start=bytes(b'abcd_abc'),
+                end=bytes(b'abcd_xyz'),
+                key=bytes(b'abcd_abc\x00\x00\x00\x00\x00\x01\x91#\x172N\xbb'),
                 delta=1e-35)
 
 

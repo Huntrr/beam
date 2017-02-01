@@ -24,6 +24,7 @@ from builtins import zip
 from past.utils import old_div
 import logging
 import math
+import binascii
 import threading
 
 from apache_beam.io import iobase
@@ -423,14 +424,14 @@ class LexicographicKeyRangeTracker(OrderedPositionRangeTracker):
     """
     assert 0 <= fraction <= 1, fraction
     if start is None:
-      start = ''
+      start = bytes(b'')
     if fraction == 1:
       return end
     elif fraction == 0:
       return start
     else:
       if not end:
-        common_prefix_len = len(start) - len(start.lstrip('\xFF'))
+        common_prefix_len = len(start) - len(start.lstrip(bytes(b'\xFF')))
       else:
         for ix, (s, e) in enumerate(zip(start, end)):
           if s != e:
@@ -441,8 +442,8 @@ class LexicographicKeyRangeTracker(OrderedPositionRangeTracker):
       # Convert the relative precision of fraction (~53 bits) to an absolute
       # precision needed to represent values between start and end distinctly.
       prec = common_prefix_len + int(-math.log(fraction, 256)) + 7
-      istart = cls._string_to_int(start, prec)
-      iend = cls._string_to_int(end, prec) if end else 1 << (prec * 8)
+      istart = cls._bytes_to_int(start, prec)
+      iend = cls._bytes_to_int(end, prec) if end else 1 << (prec * 8)
       ikey = istart + int((iend - istart) * fraction)
       # Could be equal due to rounding.
       # Adjust to ensure we never return the actual start and end
@@ -451,7 +452,7 @@ class LexicographicKeyRangeTracker(OrderedPositionRangeTracker):
         ikey += 1
       elif ikey == iend:
         ikey -= 1
-      return cls._string_from_int(ikey, prec).rstrip('\0')
+      return cls._bytes_from_int(ikey, prec).rstrip(bytes(b'\0'))
 
   @classmethod
   def position_to_fraction(cls, key, start=None, end=None):
@@ -462,19 +463,19 @@ class LexicographicKeyRangeTracker(OrderedPositionRangeTracker):
     if not key:
       return 0
     if start is None:
-      start = ''
+      start = bytes(b'')
     prec = len(start) + 7
     if key.startswith(start):
       # Higher absolute precision needed for very small values of fixed
       # relative position.
-      prec = max(prec, len(key) - len(key[len(start):].strip('\0')) + 7)
-    istart = cls._string_to_int(start, prec)
-    ikey = cls._string_to_int(key, prec)
-    iend = cls._string_to_int(end, prec) if end else 1 << (prec * 8)
+      prec = max(prec, len(key) - len(key[len(start):].strip(bytes(b'\0'))) + 7)
+    istart = cls._bytes_to_int(start, prec)
+    ikey = cls._bytes_to_int(key, prec)
+    iend = cls._bytes_to_int(end, prec) if end else 1 << (prec * 8)
     return old_div(float(ikey - istart), (iend - istart))
 
   @staticmethod
-  def _string_to_int(s, prec):
+  def _bytes_to_int(s, prec):
     """
     Returns int(256**prec * f) where f is the fraction
     represented by interpreting '.' + s as a base-256
@@ -483,15 +484,16 @@ class LexicographicKeyRangeTracker(OrderedPositionRangeTracker):
     if not s:
       return 0
     elif len(s) < prec:
-      s += '\0' * (prec - len(s))
+      s += bytes(b'\0') * (prec - len(s))
     else:
       s = s[:prec]
-    return int(s.encode('hex'), 16)
+    return int(binascii.hexlify(s), 16)
 
   @staticmethod
-  def _string_from_int(i, prec):
+  def _bytes_from_int(i, prec):
     """
-    Inverse of _string_to_int.
+    Inverse of _bytes_to_int.
     """
+    # This should be in unicode, as we are decoding it back
     h = '%x' % i
     return ('0' * (2 * prec - len(h)) + h).decode('hex')
