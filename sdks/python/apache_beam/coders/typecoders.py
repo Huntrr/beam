@@ -66,6 +66,8 @@ See apache_beam.typehints.decorators module for more details.
 from __future__ import unicode_literals
 
 from builtins import object
+from builtins import str
+from builtins import bytes
 import logging
 import warnings
 
@@ -85,7 +87,6 @@ class CoderRegistry(object):
     """Register coders for all basic and composite types."""
     self._register_coder_internal(int, coders.VarIntCoder)
     self._register_coder_internal(float, coders.FloatCoder)
-    self._register_coder_internal(str, coders.BytesCoder)
     self._register_coder_internal(bytes, coders.BytesCoder)
     self._register_coder_internal(str, coders.StrUtf8Coder)
     self._register_coder_internal(typehints.TupleConstraint, coders.TupleCoder)
