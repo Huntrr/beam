@@ -41,6 +41,7 @@ import calendar
 from datetime import datetime, timedelta
 import inspect
 import json
+import six
 
 __all__ = ['HasDisplayData', 'DisplayDataItem', 'DisplayData']
 
@@ -161,12 +162,29 @@ class DisplayDataItem(object):
   Each item is identified by a key and the namespace of the component the
   display item belongs to.
   """
-  typeDict = {str:'STRING',
-              int:'INTEGER',
-              float:'FLOAT',
-              bool: 'BOOLEAN',
-              timedelta:'DURATION',
-              datetime:'TIMESTAMP'}
+  # typeDict = {str:'STRING',
+  #             int:'INTEGER',
+  #             float:'FLOAT',
+  #             bool: 'BOOLEAN',
+  #             timedelta:'DURATION',
+  #             datetime:'TIMESTAMP'}
+
+  @staticmethod
+  def get_type_string(value):
+    # TODO: Check if this works for all types
+    if isinstance(value, six.integer_types):
+      return 'INTEGER'
+    elif isinstance(value, six.string_types):
+      return 'INTEGER'
+    elif type(value) == float:
+      return 'FLOAT'
+    elif type(value) == bool:
+      return 'BOOLEAN'
+    elif type(value) == timedelta:
+      return 'DURATION'
+    elif type(value) == datetime:
+      return 'TIMESTAMP'
+
 
   def __init__(self, value, url=None, label=None,
                namespace=None, key=None, shortValue=None):
@@ -324,7 +342,7 @@ class DisplayDataItem(object):
       'TIMESTAMP', depending on the type of the value.
     """
     #TODO: Fix Args: documentation once the Python classes handling has changed
-    type_ = cls.typeDict.get(type(value))
+    type_ = cls.get_type_string(value)
     if type_ is None:
       type_ = 'CLASS' if inspect.isclass(value) else None
     if type_ is None and value is None:
