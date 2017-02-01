@@ -30,7 +30,7 @@ class OutputStream(object):
     self.data = []
 
   def write(self, b, nested=False):
-    assert isinstance(b, str)
+    assert isinstance(b, bytes), (b, type(b))
     if nested:
       self.write_var_int64(len(b))
     self.data.append(b)

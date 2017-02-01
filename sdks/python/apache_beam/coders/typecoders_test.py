@@ -19,6 +19,7 @@
 from __future__ import unicode_literals
 
 from builtins import str
+from builtins import bytes
 from builtins import object
 import unittest
 
@@ -40,7 +41,7 @@ class CustomClass(object):
 class CustomCoder(coders.Coder):
 
   def encode(self, value):
-    return str(value.number)
+    return str(value.number).encode()
 
   def decode(self, encoded):
     return CustomClass(int(encoded))
@@ -78,7 +79,7 @@ class TypeCodersTest(unittest.TestCase):
 
   def test_get_coder_with_standard_coder(self):
     self.assertEqual(coders.BytesCoder,
-                     typecoders.registry.get_coder(str).__class__)
+                     typecoders.registry.get_coder(bytes).__class__)
 
   def test_fallbackcoder(self):
     coder = typecoders.registry.get_coder(typehints.Any)
@@ -104,7 +105,7 @@ class TypeCodersTest(unittest.TestCase):
 
   def test_standard_str_coder(self):
     real_coder = typecoders.registry.get_coder(str)
-    expected_coder = coders.BytesCoder()
+    expected_coder = coders.StrUtf8Coder()
     self.assertEqual(
         real_coder.encode('abc'), expected_coder.encode('abc'))
     self.assertEqual('abc', real_coder.decode(real_coder.encode('abc')))
@@ -112,8 +113,9 @@ class TypeCodersTest(unittest.TestCase):
     real_coder = typecoders.registry.get_coder(bytes)
     expected_coder = coders.BytesCoder()
     self.assertEqual(
-        real_coder.encode('abc'), expected_coder.encode('abc'))
-    self.assertEqual('abc', real_coder.decode(real_coder.encode('abc')))
+        real_coder.encode(bytes(b'abc')), expected_coder.encode(bytes(b'abc')))
+    self.assertEqual(bytes(b'abc'),
+                     real_coder.decode(real_coder.encode(bytes(b'abc'))))
 
 
 if __name__ == '__main__':
