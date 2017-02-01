@@ -19,6 +19,7 @@
 from __future__ import division
 from __future__ import unicode_literals
 
+from builtins import bytes
 from builtins import str
 from builtins import bytes
 from past.utils import old_div
@@ -429,9 +430,9 @@ class UnsplittableRangeTrackerTest(unittest.TestCase):
 
 
 class LexicographicKeyRangeTrackerTest(unittest.TestCase):
-  """
-  Tests of LexicographicKeyRangeTracker.
-  """
+#   """
+#   Tests of LexicographicKeyRangeTracker.
+#   """
 
   key_to_fraction = (
       range_trackers.LexicographicKeyRangeTracker.position_to_fraction)
@@ -559,7 +560,6 @@ class LexicographicKeyRangeTrackerTest(unittest.TestCase):
                 end=bytes(b'abcd_xyz'),
                 key=bytes(b'abcd_abc\x00\x00\x00\x00\x00\x01\x91#\x172N\xbb'),
                 delta=1e-35)
-
 
 if __name__ == '__main__':
   logging.getLogger().setLevel(logging.INFO)

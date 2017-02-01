@@ -20,6 +20,7 @@
 from __future__ import division
 from __future__ import unicode_literals
 
+from builtins import bytes
 from builtins import zip
 from past.utils import old_div
 import logging
