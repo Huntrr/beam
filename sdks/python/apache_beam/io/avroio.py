@@ -120,7 +120,7 @@ class _AvroUtils(object):
     if datafile.CODEC_KEY in meta:
       codec = meta[datafile.CODEC_KEY]
     else:
-      codec = 'null'
+      codec = bytes(b'null')
 
     schema_string = meta[datafile.SCHEMA_KEY]
     sync_marker = header['sync']
@@ -187,14 +187,14 @@ class _AvroBlock(object):
 
   @staticmethod
   def _decompress_bytes(data, codec):
-    if codec == 'null':
+    if codec == bytes(b'null'):
       return data
-    elif codec == 'deflate':
+    elif codec == bytes(b'deflate'):
       # zlib.MAX_WBITS is the window size. '-' sign indicates that this is
       # raw data (without headers). See zlib and Avro documentations for more
       # details.
       return zlib.decompress(data, -zlib.MAX_WBITS)
-    elif codec == 'snappy':
+    elif codec == bytes(b'snappy'):
       # Snappy is an optional avro codec.
       # See Snappy and Avro documentation for more details.
       try:
@@ -206,7 +206,7 @@ class _AvroBlock(object):
       # We take care to avoid extra copies of data while slicing large objects
       # by use of a buffer.
       result = snappy.decompress(buffer(data)[:-4])
-      avroio.BinaryDecoder(io.StringIO(data[-4:])).check_crc32(result)
+      avroio.BinaryDecoder(io.BytesIO(data[-4:])).check_crc32(result)
       return result
     else:
       raise ValueError('Unknown codec: %r', codec)
@@ -216,7 +216,7 @@ class _AvroBlock(object):
 
   def records(self):
     decoder = avroio.BinaryDecoder(
-        io.StringIO(self._decompressed_block_bytes))
+        io.BytesIO(self._decompressed_block_bytes))
     reader = avroio.DatumReader(
         writers_schema=self._schema, readers_schema=self._schema)
 
@@ -263,7 +263,7 @@ class WriteToAvro(beam.transforms.PTransform):
   def __init__(self,
                file_path_prefix,
                schema,
-               codec='deflate',
+               codec=bytes(b'deflate'),
                file_name_suffix='',
                num_shards=0,
                shard_name_template=None,

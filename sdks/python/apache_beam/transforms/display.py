@@ -253,7 +253,9 @@ class DisplayDataItem(object):
     res = {'key': self.key,
            'namespace': self.namespace,
            'type': self.type if self.type != 'CLASS' else 'STRING'}
-    # TODO: Python Class types should not be special-cased once
+
+    # TODO: fix for Python3.
+
     # the Fn API is in.
     if self.url is not None:
       res['url'] = self.url

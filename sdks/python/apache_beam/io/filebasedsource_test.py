@@ -73,7 +73,7 @@ class LineSource(FileBasedSource):
       while line:
         if not range_tracker.try_claim(current):
           return
-        yield line.rstrip('\n')
+        yield line.rstrip(bytes(b'\n'))
         current += len(line)
         line = f.readline()
     finally:
@@ -93,9 +93,9 @@ def write_data(
   all_data = []
   with tempfile.NamedTemporaryFile(
       delete=False, dir=directory, prefix=prefix) as f:
-    sep_values = ['\n', '\r\n']
+    sep_values = [bytes(b'\n'), bytes(b'\r\n')]
     for i in range(num_lines):
-      data = '' if no_data else 'line' + str(i)
+      data = bytes(b'') if no_data else bytes(b'line') + str(i)
       all_data.append(data)
 
       if eol == EOL.LF:
@@ -460,7 +460,7 @@ class TestFileBasedSource(unittest.TestCase):
     chunks = [lines[splits[i-1]:splits[i]] for i in range(1, len(splits))]
     compressed_chunks = []
     for c in chunks:
-      out = io.StringIO()
+      out = io.BytesIO()
       with gzip.GzipFile(fileobj=out, mode="w") as f:
         f.write('\n'.join(c))
       compressed_chunks.append(out.getvalue())
@@ -507,9 +507,9 @@ class TestFileBasedSource(unittest.TestCase):
     chunks = [lines[splits[i - 1]:splits[i]] for i in range(1, len(splits))]
     compressed_chunks = []
     for c in chunks:
-      out = io.StringIO()
+      out = io.BytesIO()
       with gzip.GzipFile(fileobj=out, mode="w") as f:
-        f.write('\n'.join(c))
+        f.write(bytes(b'\n').join(c))
       compressed_chunks.append(out.getvalue())
     file_pattern = write_prepared_pattern(
         compressed_chunks, suffixes=['.gz']*len(chunks))
@@ -527,12 +527,12 @@ class TestFileBasedSource(unittest.TestCase):
     chunks_to_write = []
     for i, c in enumerate(chunks):
       if i%2 == 0:
-        out = io.StringIO()
-        with gzip.GzipFile(fileobj=out, mode="w") as f:
-          f.write('\n'.join(c))
+        out = io.BytesIO()
+        with gzip.GzipFile(fileobj=out, mode=bytes(b'wb')) as f:
+          f.write(bytes(b'\n').join(c))
         chunks_to_write.append(out.getvalue())
       else:
-        chunks_to_write.append('\n'.join(c))
+        chunks_to_write.append(bytes(b'\n').join(c))
     file_pattern = write_prepared_pattern(chunks_to_write,
                                           suffixes=(['.gz', '']*3))
     pipeline = TestPipeline()

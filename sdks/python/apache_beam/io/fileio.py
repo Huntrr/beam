@@ -456,7 +456,7 @@ class _CompressedFile(object):
     if not self._decompressor:
       raise ValueError('decompressor not initialized')
 
-    io = io.StringIO()
+    buf = io.BytesIO()
     while True:
       # Ensure that the internal buffer has at least half the read_size. Going
       # with half the _read_size (as opposed to a full _read_size) to ensure
@@ -465,11 +465,11 @@ class _CompressedFile(object):
       self._fetch_to_internal_buffer(old_div(self._read_size, 2))
       line = self._read_from_internal_buffer(
           lambda: self._read_buffer.readline())
-      io.write(line)
+      buf.write(line)
       if line.endswith('\n') or not line:
         break  # Newline or EOF reached.
 
-    return io.getvalue()
+    return buf.getvalue()
 
   def closed(self):
     return not self._file or self._file.closed()

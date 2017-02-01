@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -16,7 +15,10 @@ from __future__ import unicode_literals
 # limitations under the License.
 #
 
+from __future__ import unicode_literals
+
 from builtins import str
+from builtins import bytes
 from builtins import range
 import json
 import logging
@@ -98,7 +100,7 @@ class TestAvro(unittest.TestCase):
   def _write_data(self,
                   directory=None,
                   prefix=tempfile.template,
-                  codec='null',
+                  codec=bytes(b'null'),
                   count=len(RECORDS)):
 
     with tempfile.NamedTemporaryFile(
@@ -106,7 +108,8 @@ class TestAvro(unittest.TestCase):
       writer = DataFileWriter(f, DatumWriter(), self.SCHEMA, codec=codec)
       len_records = len(self.RECORDS)
       for i in range(count):
-        writer.append(self.RECORDS[i % len_records])
+        data = self.RECORDS[i % len_records]
+        writer.append(data)
       writer.close()
 
       self._temp_files.append(f.name)
@@ -251,24 +254,24 @@ class TestAvro(unittest.TestCase):
     self._run_avro_test(file_name, 10000, True, expected_result)
 
   def test_read_without_splitting_compressed_deflate(self):
-    file_name = self._write_data(codec='deflate')
+    file_name = self._write_data(codec=bytes(b'deflate'))
     expected_result = self.RECORDS
     self._run_avro_test(file_name, None, False, expected_result)
 
   def test_read_with_splitting_compressed_deflate(self):
-    file_name = self._write_data(codec='deflate')
+    file_name = self._write_data(codec=bytes(b'deflate'))
     expected_result = self.RECORDS
     self._run_avro_test(file_name, 100, True, expected_result)
 
   @unittest.skipIf(snappy is None, 'snappy not installed.')
   def test_read_without_splitting_compressed_snappy(self):
-    file_name = self._write_data(codec='snappy')
+    file_name = self._write_data(codec=bytes('snappy'))
     expected_result = self.RECORDS
     self._run_avro_test(file_name, None, False, expected_result)
 
   @unittest.skipIf(snappy is None, 'snappy not installed.')
   def test_read_with_splitting_compressed_snappy(self):
-    file_name = self._write_data(codec='snappy')
+    file_name = self._write_data(codec=bytes('snappy'))
     expected_result = self.RECORDS
     self._run_avro_test(file_name, 100, True, expected_result)
 
@@ -306,7 +309,7 @@ class TestAvro(unittest.TestCase):
     # the last sync_marker.
     last_char_index = len(data) - 1
     corrupted_data = data[:last_char_index]
-    corrupted_data += 'A' if data[last_char_index] == 'B' else 'B'
+    corrupted_data += bytes(b'A') if data[last_char_index] == bytes(b'B') else bytes(b'B')
     with tempfile.NamedTemporaryFile(
         delete=False, prefix=tempfile.template) as f:
       f.write(corrupted_data)
@@ -340,7 +343,7 @@ class TestAvro(unittest.TestCase):
       with beam.Pipeline('DirectRunner') as p:
         # pylint: disable=expression-not-assigned
         p | beam.Create(self.RECORDS) | avroio.WriteToAvro(
-            path, self.SCHEMA, codec='snappy')
+            path, self.SCHEMA, codec=bytes(b'snappy'))
       with beam.Pipeline('DirectRunner') as p:
         # json used for stable sortability
         readback = p | avroio.ReadFromAvro(path + '*') | beam.Map(json.dumps)
