@@ -36,7 +36,7 @@ class OutputStream(object):
     self.data.append(b)
 
   def write_byte(self, val):
-    self.data.append(chr(val))
+    self.data.append(struct.pack('B', val))
 
   def write_var_int64(self, v):
     if v < 0:
@@ -62,7 +62,7 @@ class OutputStream(object):
     self.write(struct.pack('>d', v))
 
   def get(self):
-    return ''.join(self.data)
+    return bytes(b'').join(self.data)
 
 
 class ByteCountingOutputStream(OutputStream):

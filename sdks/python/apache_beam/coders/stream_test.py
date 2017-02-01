@@ -20,6 +20,7 @@ from __future__ import division
 from __future__ import unicode_literals
 
 from builtins import range
+from builtins import bytes
 from past.utils import old_div
 import logging
 import math
@@ -38,20 +39,20 @@ class StreamTest(unittest.TestCase):
 
   def test_read_write(self):
     out_s = self.OutputStream()
-    out_s.write('abc')
-    out_s.write('\0\t\n')
-    out_s.write('xyz', True)
-    out_s.write('', True)
+    out_s.write(bytes(b'abc'))
+    out_s.write(bytes(b'\0\t\n'))
+    out_s.write(bytes(b'xyz'), True)
+    out_s.write(bytes(b''), True)
     in_s = self.InputStream(out_s.get())
-    self.assertEquals('abc\0\t\n', in_s.read(6))
-    self.assertEquals('xyz', in_s.read_all(True))
-    self.assertEquals('', in_s.read_all(True))
+    self.assertEquals(bytes(b'abc\0\t\n'), in_s.read(6))
+    self.assertEquals(bytes(b'xyz'), in_s.read_all(True))
+    self.assertEquals(bytes(b''), in_s.read_all(True))
 
   def test_read_all(self):
     out_s = self.OutputStream()
-    out_s.write('abc')
+    out_s.write(bytes(b'abc'))
     in_s = self.InputStream(out_s.get())
-    self.assertEquals('abc', in_s.read_all(False))
+    self.assertEquals(bytes(b'abc'), in_s.read_all(False))
 
   def test_read_write_byte(self):
     out_s = self.OutputStream()
