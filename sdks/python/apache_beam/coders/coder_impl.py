@@ -262,7 +262,7 @@ class FastPrimitivesCoderImpl(StreamCoderImpl):
     elif t is float:
       stream.write_byte(FLOAT_TYPE)
       stream.write_bigendian_double(value)
-    elif t is str:
+    elif t is bytes:
       stream.write_byte(STR_TYPE)
       stream.write(value, nested)
     elif t is str:
@@ -411,7 +411,7 @@ class SingletonCoderImpl(CoderImpl):
     return self._value
 
   def encode(self, value):
-    b = ''  # avoid byte vs str vs unicode error
+    b = bytes(b'')  # avoid byte vs str vs unicode error
     return b
 
   def decode(self, encoded):
