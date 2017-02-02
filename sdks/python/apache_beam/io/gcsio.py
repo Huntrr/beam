@@ -423,12 +423,12 @@ class GcsBufferedReader(object):
     get_request.generation = metadata.generation
 
     # Initialize read buffer state.
-    self.download_stream = io.StringIO()
+    self.download_stream = io.BytesIO()
     self.downloader = transfer.Download(
         self.download_stream, auto_transfer=False, chunksize=buffer_size)
     self.client.objects.Get(get_request, download=self.downloader)
     self.position = 0
-    self.buffer = ''
+    self.buffer = bytes(b'')
     self.buffer_start_position = 0
     self.closed = False
 
@@ -496,7 +496,7 @@ class GcsBufferedReader(object):
     """Shared implementation of read() and readline()."""
     self._check_open()
     if not self._remaining():
-      return ''
+      return bytes(b'')
 
     # Prepare to read.
     data_list = []
@@ -521,7 +521,7 @@ class GcsBufferedReader(object):
       # If readline is set, we only want to read up to and including the next
       # newline character.
       if readline:
-        next_newline_position = self.buffer.find('\n', buffer_bytes_read,
+        next_newline_position = self.buffer.find(bytes(b'\n'), buffer_bytes_read,
                                                  len(self.buffer))
         if next_newline_position != -1:
           bytes_to_read_from_buffer = (
@@ -537,7 +537,7 @@ class GcsBufferedReader(object):
       if break_after:
         break
 
-    return ''.join(data_list)
+    return bytes(b'').join(data_list)
 
   def _fetch_next_if_buffer_exhausted(self):
     if not self.buffer or (
@@ -559,7 +559,7 @@ class GcsBufferedReader(object):
   def _get_segment(self, start, size):
     """Get the given segment of the current GCS file."""
     if size == 0:
-      return ''
+      return bytes(b'')
     end = start + size - 1
     self.downloader.GetRange(start, end)
     value = self.download_stream.getvalue()
@@ -591,7 +591,7 @@ class GcsBufferedReader(object):
     """
     self._check_open()
 
-    self.buffer = ''
+    self.buffer = bytes(b'')
     self.buffer_start_position = -1
 
     if whence == os.SEEK_SET:
@@ -644,7 +644,7 @@ class GcsBufferedWriter(object):
       self.conn = recv_pipe
       self.closed = False
       self.position = 0
-      self.remaining = ''
+      self.remaining = bytes(b'')
 
     def read(self, size):
       """Read data from the wrapped pipe connection.
@@ -669,7 +669,7 @@ class GcsBufferedWriter(object):
             self.remaining = self.conn.recv_bytes()
           except EOFError:
             break
-      return ''.join(data_list)
+      return bytes(b'').join(data_list)
 
     def tell(self):
       """Tell the file's current offset.
