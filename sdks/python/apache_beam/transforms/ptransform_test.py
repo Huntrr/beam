@@ -71,7 +71,7 @@ class PTransformTest(unittest.TestCase):
     pc = TestPipeline()
     res = pc | beam.Create([1, 2])
     inputs_tr = res.producer.transform
-    inputs_tr.inputs = ('ci',)
+    inputs_tr.inputs = (bytes(b'ci'),)
     self.assertEqual(
         """<Create(PTransform) label=[Create] inputs=('ci',)>""",
         str(inputs_tr))
@@ -84,7 +84,7 @@ class PTransformTest(unittest.TestCase):
         '<Create(PTransform) label=[Create] side_inputs=(4,)>',
         str(side_tr))
 
-    inputs_tr.side_inputs = ('cs',)
+    inputs_tr.side_inputs = (bytes(b'cs'),)
     self.assertEqual(
         """<Create(PTransform) label=[Create] """
         """inputs=('ci',) side_inputs=('cs',)>""",
@@ -108,7 +108,7 @@ class PTransformTest(unittest.TestCase):
     self.assertRaises(ValueError, fun, other='value')
 
     with self.assertRaises(ValueError) as cm:
-      fun(0, name='value')
+      fun(0, name=bytes(b'value'))
     self.assertEqual(
         cm.exception.message,
         'PTransform expects a (label, name) or (name) argument list '
@@ -164,8 +164,8 @@ class PTransformTest(unittest.TestCase):
 
   def test_do_with_do_fn_returning_string_raises_warning(self):
     pipeline = TestPipeline()
-    pcoll = pipeline | 'Start' >> beam.Create(['2', '9', '3'])
-    pcoll | 'Do' >> beam.FlatMap(lambda x: x + '1')
+    pcoll = pipeline | 'Start' >> beam.Create([bytes(b'2'), bytes(b'9'), bytes(b'3')])
+    pcoll | 'Do' >> beam.FlatMap(lambda x: x + bytes(b'1'))
 
     # Since the DoFn directly returns a string we should get an error warning
     # us.
@@ -794,1170 +794,1170 @@ class PTransformTestDisplayData(unittest.TestCase):
     hc.assert_that(dd.items, hc.has_item(expected_item))
 
 
-class PTransformTypeCheckTestCase(TypeHintTestCase):
-
-  def assertStartswith(self, msg, prefix):
-    self.assertTrue(msg.startswith(prefix),
-                    '"%s" does not start with "%s"' % (msg, prefix))
-
-  def setUp(self):
-    self.p = TestPipeline()
-
-  def test_do_fn_pipeline_pipeline_type_check_satisfied(self):
-    @with_input_types(int, int)
-    @with_output_types(typehints.List[int])
-    class AddWithFive(beam.DoFn):
-      def process(self, context, five):
-        return [context.element + five]
-
-    d = (self.p
-         | 'T' >> beam.Create([1, 2, 3]).with_output_types(int)
-         | 'Add' >> beam.ParDo(AddWithFive(), 5))
-
-    assert_that(d, equal_to([6, 7, 8]))
-    self.p.run()
-
-  def test_do_fn_pipeline_pipeline_type_check_violated(self):
-    @with_input_types(str, str)
-    @with_output_types(typehints.List[str])
-    class ToUpperCaseWithPrefix(beam.DoFn):
-      def process(self, context, prefix):
-        return [prefix + context.element.upper()]
-
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | 'T' >> beam.Create([1, 2, 3]).with_output_types(int)
-       | 'Upper' >> beam.ParDo(ToUpperCaseWithPrefix(), 'hello'))
-
-    self.assertEqual("Type hint violation for 'Upper': "
-                     "requires <type 'str'> but got <type 'int'> for context",
-                     e.exception.message)
-
-  def test_do_fn_pipeline_runtime_type_check_satisfied(self):
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    @with_input_types(int, int)
-    @with_output_types(int)
-    class AddWithNum(beam.DoFn):
-      def process(self, context, num):
-        return [context.element + num]
-
-    d = (self.p
-         | 'T' >> beam.Create([1, 2, 3]).with_output_types(int)
-         | 'Add' >> beam.ParDo(AddWithNum(), 5))
-
-    assert_that(d, equal_to([6, 7, 8]))
-    self.p.run()
-
-  def test_do_fn_pipeline_runtime_type_check_violated(self):
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    @with_input_types(int, int)
-    @with_output_types(typehints.List[int])
-    class AddWithNum(beam.DoFn):
-      def process(self, context, num):
-        return [context.element + num]
-
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | 'T' >> beam.Create(['1', '2', '3']).with_output_types(str)
-       | 'Add' >> beam.ParDo(AddWithNum(), 5))
-      self.p.run()
-
-    self.assertEqual("Type hint violation for 'Add': "
-                     "requires <type 'int'> but got <type 'str'> for context",
-                     e.exception.message)
-
-  def test_pardo_does_not_type_check_using_type_hint_decorators(self):
-    @with_input_types(a=int)
-    @with_output_types(typehints.List[str])
-    def int_to_str(a):
-      return [str(a)]
-
-    # The function above is expecting an int for its only parameter. However, it
-    # will receive a str instead, which should result in a raised exception.
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | 'S' >> beam.Create(['b', 'a', 'r']).with_output_types(str)
-       | 'ToStr' >> beam.FlatMap(int_to_str))
-
-    self.assertEqual("Type hint violation for 'ToStr': "
-                     "requires <type 'int'> but got <type 'str'> for a",
-                     e.exception.message)
-
-  def test_pardo_properly_type_checks_using_type_hint_decorators(self):
-    @with_input_types(a=str)
-    @with_output_types(typehints.List[str])
-    def to_all_upper_case(a):
-      return [a.upper()]
-
-    # If this type-checks than no error should be raised.
-    d = (self.p
-         | 'T' >> beam.Create(['t', 'e', 's', 't']).with_output_types(str)
-         | 'Case' >> beam.FlatMap(to_all_upper_case))
-    assert_that(d, equal_to(['T', 'E', 'S', 'T']))
-    self.p.run()
-
-    # Output type should have been recognized as 'str' rather than List[str] to
-    # do the flatten part of FlatMap.
-    self.assertEqual(str, d.element_type)
-
-  def test_pardo_does_not_type_check_using_type_hint_methods(self):
-    # The first ParDo outputs pcoll's of type int, however the second ParDo is
-    # expecting pcoll's of type str instead.
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | 'S' >> beam.Create(['t', 'e', 's', 't']).with_output_types(str)
-       | ('Score' >> beam.FlatMap(lambda x: [1] if x == 't' else [2])
-          .with_input_types(str).with_output_types(int))
-       | ('Upper' >> beam.FlatMap(lambda x: [x.upper()])
-          .with_input_types(str).with_output_types(str)))
-
-    self.assertEqual("Type hint violation for 'Upper': "
-                     "requires <type 'str'> but got <type 'int'> for x",
-                     e.exception.message)
-
-  def test_pardo_properly_type_checks_using_type_hint_methods(self):
-    # Pipeline should be created successfully without an error
-    d = (self.p
-         | 'S' >> beam.Create(['t', 'e', 's', 't']).with_output_types(str)
-         | 'Dup' >> beam.FlatMap(lambda x: [x + x])
-         .with_input_types(str).with_output_types(str)
-         | 'Upper' >> beam.FlatMap(lambda x: [x.upper()])
-         .with_input_types(str).with_output_types(str))
-
-    assert_that(d, equal_to(['TT', 'EE', 'SS', 'TT']))
-    self.p.run()
-
-  def test_map_does_not_type_check_using_type_hints_methods(self):
-    # The transform before 'Map' has indicated that it outputs PCollections with
-    # int's, while Map is expecting one of str.
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | 'S' >> beam.Create([1, 2, 3, 4]).with_output_types(int)
-       | 'Upper' >> beam.Map(lambda x: x.upper())
-       .with_input_types(str).with_output_types(str))
-
-    self.assertEqual("Type hint violation for 'Upper': "
-                     "requires <type 'str'> but got <type 'int'> for x",
-                     e.exception.message)
-
-  def test_map_properly_type_checks_using_type_hints_methods(self):
-    # No error should be raised if this type-checks properly.
-    d = (self.p
-         | 'S' >> beam.Create([1, 2, 3, 4]).with_output_types(int)
-         | 'ToStr' >> beam.Map(lambda x: str(x))
-         .with_input_types(int).with_output_types(str))
-    assert_that(d, equal_to(['1', '2', '3', '4']))
-    self.p.run()
-
-  def test_map_does_not_type_check_using_type_hints_decorator(self):
-    @with_input_types(s=str)
-    @with_output_types(str)
-    def upper(s):
-      return s.upper()
-
-    # Hinted function above expects a str at pipeline construction.
-    # However, 'Map' should detect that Create has hinted an int instead.
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | 'S' >> beam.Create([1, 2, 3, 4]).with_output_types(int)
-       | 'Upper' >> beam.Map(upper))
-
-    self.assertEqual("Type hint violation for 'Upper': "
-                     "requires <type 'str'> but got <type 'int'> for s",
-                     e.exception.message)
-
-  def test_map_properly_type_checks_using_type_hints_decorator(self):
-    @with_input_types(a=bool)
-    @with_output_types(int)
-    def bool_to_int(a):
-      return int(a)
-
-    # If this type-checks than no error should be raised.
-    d = (self.p
-         | 'bools' >> beam.Create([True, False, True]).with_output_types(bool)
-         | 'to_ints' >> beam.Map(bool_to_int))
-    assert_that(d, equal_to([1, 0, 1]))
-    self.p.run()
-
-  def test_filter_does_not_type_check_using_type_hints_method(self):
-    # Filter is expecting an int but instead looks to the 'left' and sees a str
-    # incoming.
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | 'Strs' >> beam.Create(['1', '2', '3', '4', '5']).with_output_types(str)
-       | 'Lower' >> beam.Map(lambda x: x.lower())
-       .with_input_types(str).with_output_types(str)
-       | 'Below 3' >> beam.Filter(lambda x: x < 3).with_input_types(int))
-
-    self.assertEqual("Type hint violation for 'Below 3': "
-                     "requires <type 'int'> but got <type 'str'> for x",
-                     e.exception.message)
-
-  def test_filter_type_checks_using_type_hints_method(self):
-    # No error should be raised if this type-checks properly.
-    d = (self.p
-         | beam.Create(['1', '2', '3', '4', '5']).with_output_types(str)
-         | 'ToInt' >> beam.Map(lambda x: int(x))
-         .with_input_types(str).with_output_types(int)
-         | 'Below 3' >> beam.Filter(lambda x: x < 3).with_input_types(int))
-    assert_that(d, equal_to([1, 2]))
-    self.p.run()
-
-  def test_filter_does_not_type_check_using_type_hints_decorator(self):
-    @with_input_types(a=float)
-    def more_than_half(a):
-      return a > 0.50
-
-    # Func above was hinted to only take a float, yet an int will be passed.
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | 'Ints' >> beam.Create([1, 2, 3, 4]).with_output_types(int)
-       | 'Half' >> beam.Filter(more_than_half))
-
-    self.assertEqual("Type hint violation for 'Half': "
-                     "requires <type 'float'> but got <type 'int'> for a",
-                     e.exception.message)
-
-  def test_filter_type_checks_using_type_hints_decorator(self):
-    @with_input_types(b=int)
-    def half(b):
-      import random
-      return bool(random.choice([0, 1]))
-
-    # Filter should deduce that it returns the same type that it takes.
-    (self.p
-     | 'Str' >> beam.Create(list(range(5))).with_output_types(int)
-     | 'Half' >> beam.Filter(half)
-     | 'ToBool' >> beam.Map(lambda x: bool(x))
-     .with_input_types(int).with_output_types(bool))
-
-  def test_group_by_key_only_output_type_deduction(self):
-    d = (self.p
-         | 'Str' >> beam.Create(['t', 'e', 's', 't']).with_output_types(str)
-         | ('Pair' >> beam.Map(lambda x: (x, ord(x)))
-            .with_output_types(typehints.KV[str, str]))
-         | beam.GroupByKeyOnly())
-
-    # Output type should correctly be deduced.
-    # GBK-only should deduce that KV[A, B] is turned into KV[A, Iterable[B]].
-    self.assertCompatible(typehints.KV[str, typehints.Iterable[str]],
-                          d.element_type)
-
-  def test_group_by_key_output_type_deduction(self):
-    d = (self.p
-         | 'Str' >> beam.Create(list(range(20))).with_output_types(int)
-         | ('PairNegative' >> beam.Map(lambda x: (x % 5, -x))
-            .with_output_types(typehints.KV[int, int]))
-         | beam.GroupByKey())
-
-    # Output type should correctly be deduced.
-    # GBK should deduce that KV[A, B] is turned into KV[A, Iterable[B]].
-    self.assertCompatible(typehints.KV[int, typehints.Iterable[int]],
-                          d.element_type)
-
-  def test_group_by_key_only_does_not_type_check(self):
-    # GBK will be passed raw int's here instead of some form of KV[A, B].
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | beam.Create([1, 2, 3]).with_output_types(int)
-       | 'F' >> beam.GroupByKeyOnly())
-
-    self.assertEqual("Input type hint violation at F: "
-                     "expected Tuple[TypeVariable[K], TypeVariable[V]], "
-                     "got <type 'int'>",
-                     e.exception.message)
-
-  def test_group_by_does_not_type_check(self):
-    # Create is returning a List[int, str], rather than a KV[int, str] that is
-    # aliased to Tuple[int, str].
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | (beam.Create(list(range(5)))
-          .with_output_types(typehints.Iterable[int]))
-       | 'T' >> beam.GroupByKey())
-
-    self.assertEqual("Input type hint violation at T: "
-                     "expected Tuple[TypeVariable[K], TypeVariable[V]], "
-                     "got Iterable[int]",
-                     e.exception.message)
-
-  def test_pipeline_checking_pardo_insufficient_type_information(self):
-    self.p.options.view_as(TypeOptions).type_check_strictness = 'ALL_REQUIRED'
-
-    # Type checking is enabled, but 'Create' doesn't pass on any relevant type
-    # information to the ParDo.
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | 'Nums' >> beam.Create(list(range(5)))
-       | 'ModDup' >> beam.FlatMap(lambda x: (x % 2, x)))
-
-    self.assertEqual('Pipeline type checking is enabled, however no output '
-                     'type-hint was found for the PTransform Create(Nums)',
-                     e.exception.message)
-
-  def test_pipeline_checking_gbk_insufficient_type_information(self):
-    self.p.options.view_as(TypeOptions).type_check_strictness = 'ALL_REQUIRED'
-    # Type checking is enabled, but 'Map' doesn't pass on any relevant type
-    # information to GBK-only.
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | 'Nums' >> beam.Create(list(range(5))).with_output_types(int)
-       | 'ModDup' >> beam.Map(lambda x: (x % 2, x))
-       | beam.GroupByKeyOnly())
-
-    self.assertEqual('Pipeline type checking is enabled, however no output '
-                     'type-hint was found for the PTransform '
-                     'ParDo(ModDup)',
-                     e.exception.message)
-
-  def test_disable_pipeline_type_check(self):
-    self.p.options.view_as(TypeOptions).pipeline_type_check = False
-
-    # The pipeline below should raise a TypeError, however pipeline type
-    # checking was disabled above.
-    (self.p
-     | 'T' >> beam.Create([1, 2, 3]).with_output_types(int)
-     | 'Lower' >> beam.Map(lambda x: x.lower())
-     .with_input_types(str).with_output_types(str))
-
-  def test_run_time_type_checking_enabled_type_violation(self):
-    self.p.options.view_as(TypeOptions).pipeline_type_check = False
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    @with_output_types(str)
-    @with_input_types(x=int)
-    def int_to_string(x):
-      return str(x)
-
-    # Function above has been type-hinted to only accept an int. But in the
-    # pipeline execution it'll be passed a string due to the output of Create.
-    (self.p
-     | 'T' >> beam.Create(['some_string'])
-     | 'ToStr' >> beam.Map(int_to_string))
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      self.p.run()
-
-    self.assertStartswith(
-        e.exception.message,
-        "Runtime type violation detected within ParDo(ToStr): "
-        "Type-hint for argument: 'x' violated. "
-        "Expected an instance of <type 'int'>, "
-        "instead found some_string, an instance of <type 'str'>.")
-
-  def test_run_time_type_checking_enabled_types_satisfied(self):
-    self.p.options.view_as(TypeOptions).pipeline_type_check = False
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    @with_output_types(typehints.KV[int, str])
-    @with_input_types(x=str)
-    def group_with_upper_ord(x):
-      return (ord(x.upper()) % 5, x)
-
-    # Pipeline checking is off, but the above function should satisfy types at
-    # run-time.
-    result = (self.p
-              | 'T' >> beam.Create(['t', 'e', 's', 't', 'i', 'n', 'g'])
-              .with_output_types(str)
-              | 'GenKeys' >> beam.Map(group_with_upper_ord)
-              | 'O' >> beam.GroupByKey())
-
-    assert_that(result, equal_to([(1, ['g']),
-                                  (3, ['s', 'i', 'n']),
-                                  (4, ['t', 'e', 't'])]))
-    self.p.run()
-
-  def test_pipeline_checking_satisfied_but_run_time_types_violate(self):
-    self.p.options.view_as(TypeOptions).pipeline_type_check = False
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    @with_output_types(typehints.KV[bool, int])
-    @with_input_types(a=int)
-    def is_even_as_key(a):
-      # Simulate a programming error, should be: return (a % 2 == 0, a)
-      # However this returns KV[int, int]
-      return (a % 2, a)
-
-    (self.p
-     | 'Nums' >> beam.Create(list(range(5))).with_output_types(int)
-     | 'IsEven' >> beam.Map(is_even_as_key)
-     | 'Parity' >> beam.GroupByKey())
-
-    # Although all the types appear to be correct when checked at pipeline
-    # construction. Runtime type-checking should detect the 'is_even_as_key' is
-    # returning Tuple[int, int], instead of Tuple[bool, int].
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      self.p.run()
-
-    self.assertStartswith(
-        e.exception.message,
-        "Runtime type violation detected within ParDo(IsEven): "
-        "Tuple[bool, int] hint type-constraint violated. "
-        "The type of element #0 in the passed tuple is incorrect. "
-        "Expected an instance of type bool, "
-        "instead received an instance of type int.")
-
-  def test_pipeline_checking_satisfied_run_time_checking_satisfied(self):
-    self.p.options.view_as(TypeOptions).pipeline_type_check = False
-
-    @with_output_types(typehints.KV[bool, int])
-    @with_input_types(a=int)
-    def is_even_as_key(a):
-      # The programming error in the above test-case has now been fixed.
-      # Everything should properly type-check.
-      return (a % 2 == 0, a)
-
-    result = (self.p
-              | 'Nums' >> beam.Create(list(range(5))).with_output_types(int)
-              | 'IsEven' >> beam.Map(is_even_as_key)
-              | 'Parity' >> beam.GroupByKey())
-
-    assert_that(result, equal_to([(False, [1, 3]), (True, [0, 2, 4])]))
-    self.p.run()
-
-  def test_pipeline_runtime_checking_violation_simple_type_input(self):
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-    self.p.options.view_as(TypeOptions).pipeline_type_check = False
-
-    # The type-hinted applied via the 'with_input_types()' method indicates the
-    # ParDo should receive an instance of type 'str', however an 'int' will be
-    # passed instead.
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | beam.Create([1, 2, 3])
-       | ('ToInt' >> beam.FlatMap(lambda x: [int(x)])
-          .with_input_types(str).with_output_types(int)))
-      self.p.run()
-
-    self.assertStartswith(
-        e.exception.message,
-        "Runtime type violation detected within ParDo(ToInt): "
-        "Type-hint for argument: 'x' violated. "
-        "Expected an instance of <type 'str'>, "
-        "instead found 1, an instance of <type 'int'>.")
-
-  def test_pipeline_runtime_checking_violation_composite_type_input(self):
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-    self.p.options.view_as(TypeOptions).pipeline_type_check = False
-
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | beam.Create([(1, 3.0), (2, 4.9), (3, 9.5)])
-       | ('Add' >> beam.FlatMap(lambda x_y: [x_y[0] + x_y[1]])
-          .with_input_types(typehints.Tuple[int, int]).with_output_types(int))
-      )
-      self.p.run()
-
-    self.assertStartswith(
-        e.exception.message,
-        "Runtime type violation detected within ParDo(Add): "
-        "Type-hint for argument: 'y' violated. "
-        "Expected an instance of <type 'int'>, "
-        "instead found 3.0, an instance of <type 'float'>.")
-
-  def test_pipeline_runtime_checking_violation_simple_type_output(self):
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-    self.p.options.view_as(TypeOptions).pipeline_type_check = False
-
-    # The type-hinted applied via the 'returns()' method indicates the ParDo
-    # should output an instance of type 'int', however a 'float' will be
-    # generated instead.
-    print("HINTS", ('ToInt' >> beam.FlatMap(
-        lambda x: [float(x)]).with_input_types(int).with_output_types(
-            int)).get_type_hints())
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | beam.Create([1, 2, 3])
-       | ('ToInt' >> beam.FlatMap(lambda x: [float(x)])
-          .with_input_types(int).with_output_types(int))
-      )
-      self.p.run()
-
-    self.assertStartswith(
-        e.exception.message,
-        "Runtime type violation detected within "
-        "ParDo(ToInt): "
-        "According to type-hint expected output should be "
-        "of type <type 'int'>. Instead, received '1.0', "
-        "an instance of type <type 'float'>.")
-
-  def test_pipeline_runtime_checking_violation_composite_type_output(self):
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-    self.p.options.view_as(TypeOptions).pipeline_type_check = False
-
-    # The type-hinted applied via the 'returns()' method indicates the ParDo
-    # should return an instance of type: Tuple[float, int]. However, an instance
-    # of 'int' will be generated instead.
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | beam.Create([(1, 3.0), (2, 4.9), (3, 9.5)])
-       | ('Swap' >> beam.FlatMap(lambda x_y1: [x_y1[0] + x_y1[1]])
-          .with_input_types(typehints.Tuple[int, float])
-          .with_output_types(typehints.Tuple[float, int]))
-      )
-      self.p.run()
-
-    self.assertStartswith(
-        e.exception.message,
-        "Runtime type violation detected within "
-        "ParDo(Swap): Tuple type constraint violated. "
-        "Valid object instance must be of type 'tuple'. Instead, "
-        "an instance of 'float' was received.")
-
-  def test_pipline_runtime_checking_violation_with_side_inputs_decorator(self):
-    self.p.options.view_as(TypeOptions).pipeline_type_check = False
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    @with_output_types(int)
-    @with_input_types(a=int, b=int)
-    def add(a, b):
-      return a + b
-
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p | beam.Create([1, 2, 3, 4]) | 'Add 1' >> beam.Map(add, 1.0))
-      self.p.run()
-
-    self.assertStartswith(
-        e.exception.message,
-        "Runtime type violation detected within ParDo(Add 1): "
-        "Type-hint for argument: 'b' violated. "
-        "Expected an instance of <type 'int'>, "
-        "instead found 1.0, an instance of <type 'float'>.")
-
-  def test_pipline_runtime_checking_violation_with_side_inputs_via_method(self):
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-    self.p.options.view_as(TypeOptions).pipeline_type_check = False
-
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | beam.Create([1, 2, 3, 4])
-       | ('Add 1' >> beam.Map(lambda x, one: x + one, 1.0)
-          .with_input_types(int, int)
-          .with_output_types(float)))
-      self.p.run()
-
-    self.assertStartswith(
-        e.exception.message,
-        "Runtime type violation detected within ParDo(Add 1): "
-        "Type-hint for argument: 'one' violated. "
-        "Expected an instance of <type 'int'>, "
-        "instead found 1.0, an instance of <type 'float'>.")
-
-  def test_combine_properly_pipeline_type_checks_using_decorator(self):
-    @with_output_types(int)
-    @with_input_types(ints=typehints.Iterable[int])
-    def sum_ints(ints):
-      return sum(ints)
-
-    d = (self.p
-         | 'T' >> beam.Create([1, 2, 3]).with_output_types(int)
-         | 'Sum' >> beam.CombineGlobally(sum_ints))
-
-    self.assertEqual(int, d.element_type)
-    assert_that(d, equal_to([6]))
-    self.p.run()
-
-  def test_combine_func_type_hint_does_not_take_iterable_using_decorator(self):
-    @with_output_types(int)
-    @with_input_types(a=int)
-    def bad_combine(a):
-      5 + a
-
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | 'M' >> beam.Create([1, 2, 3]).with_output_types(int)
-       | 'Add' >> beam.CombineGlobally(bad_combine))
-
-    self.assertEqual(
-        "All functions for a Combine PTransform must accept a "
-        "single argument compatible with: Iterable[Any]. "
-        "Instead a function with input type: <type 'int'> was received.",
-        e.exception.message)
-
-  def test_combine_pipeline_type_propagation_using_decorators(self):
-    @with_output_types(int)
-    @with_input_types(ints=typehints.Iterable[int])
-    def sum_ints(ints):
-      return sum(ints)
-
-    @with_output_types(typehints.List[int])
-    @with_input_types(n=int)
-    def range_from_zero(n):
-      return list(range(n+1))
-
-    d = (self.p
-         | 'T' >> beam.Create([1, 2, 3]).with_output_types(int)
-         | 'Sum' >> beam.CombineGlobally(sum_ints)
-         | 'Range' >> beam.ParDo(range_from_zero))
-
-    self.assertEqual(int, d.element_type)
-    assert_that(d, equal_to([0, 1, 2, 3, 4, 5, 6]))
-    self.p.run()
-
-  def test_combine_runtime_type_check_satisfied_using_decorators(self):
-    self.p.options.view_as(TypeOptions).pipeline_type_check = False
-
-    @with_output_types(int)
-    @with_input_types(ints=typehints.Iterable[int])
-    def iter_mul(ints):
-      return reduce(operator.mul, ints, 1)
-
-    d = (self.p
-         | 'K' >> beam.Create([5, 5, 5, 5]).with_output_types(int)
-         | 'Mul' >> beam.CombineGlobally(iter_mul))
-
-    assert_that(d, equal_to([625]))
-    self.p.run()
-
-  def test_combine_runtime_type_check_violation_using_decorators(self):
-    self.p.options.view_as(TypeOptions).pipeline_type_check = False
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    # Combine fn is returning the incorrect type
-    @with_output_types(int)
-    @with_input_types(ints=typehints.Iterable[int])
-    def iter_mul(ints):
-      return str(reduce(operator.mul, ints, 1))
-
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | 'K' >> beam.Create([5, 5, 5, 5]).with_output_types(int)
-       | 'Mul' >> beam.CombineGlobally(iter_mul))
-      self.p.run()
-
-    self.assertStartswith(
-        e.exception.message,
-        "Runtime type violation detected within "
-        "ParDo(Mul/CombinePerKey/Combine/ParDo(CombineValuesDoFn)): "
-        "Tuple[TypeVariable[K], int] hint type-constraint violated. "
-        "The type of element #1 in the passed tuple is incorrect. "
-        "Expected an instance of type int, "
-        "instead received an instance of type str.")
-
-  def test_combine_pipeline_type_check_using_methods(self):
-    d = (self.p
-         | beam.Create(['t', 'e', 's', 't']).with_output_types(str)
-         | ('concat' >> beam.CombineGlobally(lambda s: ''.join(s))
-            .with_input_types(str).with_output_types(str)))
-
-    def matcher(expected):
-      def match(actual):
-        equal_to(expected)(list(actual[0]))
-      return match
-    assert_that(d, matcher('estt'))
-    self.p.run()
-
-  def test_combine_runtime_type_check_using_methods(self):
-    self.p.options.view_as(TypeOptions).pipeline_type_check = False
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    d = (self.p
-         | beam.Create(list(range(5))).with_output_types(int)
-         | ('Sum' >> beam.CombineGlobally(lambda s: sum(s))
-            .with_input_types(int).with_output_types(int)))
-
-    assert_that(d, equal_to([10]))
-    self.p.run()
-
-  def test_combine_pipeline_type_check_violation_using_methods(self):
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | beam.Create(list(range(3))).with_output_types(int)
-       | ('SortJoin' >> beam.CombineGlobally(lambda s: ''.join(sorted(s)))
-          .with_input_types(str).with_output_types(str)))
-
-    self.assertEqual("Input type hint violation at SortJoin: "
-                     "expected <type 'str'>, got <type 'int'>",
-                     e.exception.message)
-
-  def test_combine_runtime_type_check_violation_using_methods(self):
-    self.p.options.view_as(TypeOptions).pipeline_type_check = False
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | beam.Create(list(range(3))).with_output_types(int)
-       | ('SortJoin' >> beam.CombineGlobally(lambda s: ''.join(sorted(s)))
-          .with_input_types(str).with_output_types(str)))
-      self.p.run()
-
-    self.assertStartswith(
-        e.exception.message,
-        "Runtime type violation detected within "
-        "ParDo(SortJoin/KeyWithVoid): "
-        "Type-hint for argument: 'v' violated. "
-        "Expected an instance of <type 'str'>, "
-        "instead found 0, an instance of <type 'int'>.")
-
-  def test_combine_insufficient_type_hint_information(self):
-    self.p.options.view_as(TypeOptions).type_check_strictness = 'ALL_REQUIRED'
-
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | 'E' >> beam.Create(list(range(3))).with_output_types(int)
-       | 'SortJoin' >> beam.CombineGlobally(lambda s: ''.join(sorted(s)))
-       | 'F' >> beam.Map(lambda x: x + 1))
-
-    self.assertEqual(
-        'Pipeline type checking is enabled, '
-        'however no output type-hint was found for the PTransform '
-        'ParDo(SortJoin/CombinePerKey/Combine/ParDo(CombineValuesDoFn))',
-        e.exception.message)
-
-  def test_mean_globally_pipeline_checking_satisfied(self):
-    d = (self.p
-         | 'C' >> beam.Create(list(range(5))).with_output_types(int)
-         | 'Mean' >> combine.Mean.Globally())
-
-    self.assertTrue(d.element_type is float)
-    assert_that(d, equal_to([2.0]))
-    self.p.run()
-
-  def test_mean_globally_pipeline_checking_violated(self):
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | 'C' >> beam.Create(['test']).with_output_types(str)
-       | 'Mean' >> combine.Mean.Globally())
-
-    self.assertEqual("Type hint violation for 'ParDo(CombineValuesDoFn)': "
-                     "requires Tuple[TypeVariable[K], "
-                     "Iterable[Union[float, int, long]]] "
-                     "but got Tuple[None, Iterable[str]] for p_context",
-                     e.exception.message)
-
-  def test_mean_globally_runtime_checking_satisfied(self):
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    d = (self.p
-         | 'C' >> beam.Create(list(range(5))).with_output_types(int)
-         | 'Mean' >> combine.Mean.Globally())
-
-    self.assertTrue(d.element_type is float)
-    assert_that(d, equal_to([2.0]))
-    self.p.run()
-
-  def test_mean_globally_runtime_checking_violated(self):
-    self.p.options.view_as(TypeOptions).pipeline_type_check = False
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | 'C' >> beam.Create(['t', 'e', 's', 't']).with_output_types(str)
-       | 'Mean' >> combine.Mean.Globally())
-      self.p.run()
-      self.assertEqual("Runtime type violation detected for transform input "
-                       "when executing ParDoFlatMap(Combine): Tuple[Any, "
-                       "Iterable[Union[int, float]]] hint type-constraint "
-                       "violated. The type of element #1 in the passed tuple "
-                       "is incorrect. Iterable[Union[int, float]] hint "
-                       "type-constraint violated. The type of element #0 in "
-                       "the passed Iterable is incorrect: Union[int, float] "
-                       "type-constraint violated. Expected an instance of one "
-                       "of: ('int', 'float'), received str instead.",
-                       e.exception.message)
-
-  def test_mean_per_key_pipeline_checking_satisfied(self):
-    d = (self.p
-         | beam.Create(list(range(5))).with_output_types(int)
-         | ('EvenGroup' >> beam.Map(lambda x: (not x % 2, x))
-            .with_output_types(typehints.KV[bool, int]))
-         | 'EvenMean' >> combine.Mean.PerKey())
-
-    self.assertCompatible(typehints.KV[bool, float], d.element_type)
-    assert_that(d, equal_to([(False, 2.0), (True, 2.0)]))
-    self.p.run()
-
-  def test_mean_per_key_pipeline_checking_violated(self):
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | beam.Create(list(map(str, list(range(5))))).with_output_types(str)
-       | ('UpperPair' >> beam.Map(lambda x: (x.upper(), x))
-          .with_output_types(typehints.KV[str, str]))
-       | 'EvenMean' >> combine.Mean.PerKey())
-      self.p.run()
-
-    self.assertEqual("Type hint violation for 'ParDo(CombineValuesDoFn)': "
-                     "requires Tuple[TypeVariable[K], "
-                     "Iterable[Union[float, int, long]]] "
-                     "but got Tuple[str, Iterable[str]] for p_context",
-                     e.exception.message)
-
-  def test_mean_per_key_runtime_checking_satisfied(self):
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    d = (self.p
-         | beam.Create(list(range(5))).with_output_types(int)
-         | ('OddGroup' >> beam.Map(lambda x: (bool(x % 2), x))
-            .with_output_types(typehints.KV[bool, int]))
-         | 'OddMean' >> combine.Mean.PerKey())
-
-    self.assertCompatible(typehints.KV[bool, float], d.element_type)
-    assert_that(d, equal_to([(False, 2.0), (True, 2.0)]))
-    self.p.run()
-
-  def test_mean_per_key_runtime_checking_violated(self):
-    self.p.options.view_as(TypeOptions).pipeline_type_check = False
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | beam.Create(list(range(5))).with_output_types(int)
-       | ('OddGroup' >> beam.Map(lambda x: (x, str(bool(x % 2))))
-          .with_output_types(typehints.KV[int, str]))
-       | 'OddMean' >> combine.Mean.PerKey())
-      self.p.run()
-
-    self.assertStartswith(
-        e.exception.message,
-        "Runtime type violation detected within "
-        "ParDo(OddMean/CombinePerKey(MeanCombineFn)/"
-        "Combine/ParDo(CombineValuesDoFn)): "
-        "Type-hint for argument: 'p_context' violated: "
-        "Tuple[TypeVariable[K], Iterable[Union[float, int, long]]]"
-        " hint type-constraint violated. "
-        "The type of element #1 in the passed tuple is incorrect. "
-        "Iterable[Union[float, int, long]] "
-        "hint type-constraint violated. The type of element #0 "
-        "in the passed Iterable is incorrect: "
-        "Union[float, int, long] type-constraint violated. "
-        "Expected an instance of one of: "
-        "('float', 'int', 'long'), received str instead.")
-
-  def test_count_globally_pipeline_type_checking_satisfied(self):
-    d = (self.p
-         | 'P' >> beam.Create(list(range(5))).with_output_types(int)
-         | 'CountInt' >> combine.Count.Globally())
-
-    self.assertTrue(d.element_type is int)
-    assert_that(d, equal_to([5]))
-    self.p.run()
-
-  def test_count_globally_runtime_type_checking_satisfied(self):
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    d = (self.p
-         | 'P' >> beam.Create(list(range(5))).with_output_types(int)
-         | 'CountInt' >> combine.Count.Globally())
-
-    self.assertTrue(d.element_type is int)
-    assert_that(d, equal_to([5]))
-    self.p.run()
-
-  def test_count_perkey_pipeline_type_checking_satisfied(self):
-    d = (self.p
-         | beam.Create(list(range(5))).with_output_types(int)
-         | ('EvenGroup' >> beam.Map(lambda x: (not x % 2, x))
-            .with_output_types(typehints.KV[bool, int]))
-         | 'CountInt' >> combine.Count.PerKey())
-
-    self.assertCompatible(typehints.KV[bool, int], d.element_type)
-    assert_that(d, equal_to([(False, 2), (True, 3)]))
-    self.p.run()
-
-  def test_count_perkey_pipeline_type_checking_violated(self):
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | beam.Create(list(range(5))).with_output_types(int)
-       | 'CountInt' >> combine.Count.PerKey())
-
-    self.assertEqual("Input type hint violation at GroupByKey: "
-                     "expected Tuple[TypeVariable[K], TypeVariable[V]], "
-                     "got <type 'int'>",
-                     e.exception.message)
-
-  def test_count_perkey_runtime_type_checking_satisfied(self):
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    d = (self.p
-         | beam.Create(['t', 'e', 's', 't']).with_output_types(str)
-         | 'DupKey' >> beam.Map(lambda x: (x, x))
-         .with_output_types(typehints.KV[str, str])
-         | 'CountDups' >> combine.Count.PerKey())
-
-    self.assertCompatible(typehints.KV[str, int], d.element_type)
-    assert_that(d, equal_to([('e', 1), ('s', 1), ('t', 2)]))
-    self.p.run()
-
-  def test_count_perelement_pipeline_type_checking_satisfied(self):
-    d = (self.p
-         | beam.Create([1, 1, 2, 3]).with_output_types(int)
-         | 'CountElems' >> combine.Count.PerElement())
-
-    self.assertCompatible(typehints.KV[int, int], d.element_type)
-    assert_that(d, equal_to([(1, 2), (2, 1), (3, 1)]))
-    self.p.run()
-
-  def test_count_perelement_pipeline_type_checking_violated(self):
-    self.p.options.view_as(TypeOptions).type_check_strictness = 'ALL_REQUIRED'
-
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | 'f' >> beam.Create([1, 1, 2, 3])
-       | 'CountElems' >> combine.Count.PerElement())
-
-    self.assertEqual('Pipeline type checking is enabled, however no output '
-                     'type-hint was found for the PTransform '
-                     'Create(f)',
-                     e.exception.message)
-
-  def test_count_perelement_runtime_type_checking_satisfied(self):
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    d = (self.p
-         | beam.Create([True, True, False, True, True])
-         .with_output_types(bool)
-         | 'CountElems' >> combine.Count.PerElement())
-
-    self.assertCompatible(typehints.KV[bool, int], d.element_type)
-    assert_that(d, equal_to([(False, 1), (True, 4)]))
-    self.p.run()
-
-  def test_top_of_pipeline_checking_satisfied(self):
-    d = (self.p
-         | beam.Create(list(range(5, 11))).with_output_types(int)
-         | 'Top 3' >> combine.Top.Of(3, lambda x, y: x < y))
-
-    self.assertCompatible(typehints.Iterable[int],
-                          d.element_type)
-    assert_that(d, equal_to([[10, 9, 8]]))
-    self.p.run()
-
-  def test_top_of_runtime_checking_satisfied(self):
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    d = (self.p
-         | beam.Create(list('testing')).with_output_types(str)
-         | 'AciiTop' >> combine.Top.Of(3, lambda x, y: x < y))
-
-    self.assertCompatible(typehints.Iterable[str], d.element_type)
-    assert_that(d, equal_to([['t', 't', 's']]))
-    self.p.run()
-
-  def test_per_key_pipeline_checking_violated(self):
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | beam.Create(list(range(100))).with_output_types(int)
-       | 'Num + 1' >> beam.Map(lambda x: x + 1).with_output_types(int)
-       | 'TopMod' >> combine.Top.PerKey(1, lambda a, b: a < b))
-
-    self.assertEqual("Input type hint violation at GroupByKey: "
-                     "expected Tuple[TypeVariable[K], TypeVariable[V]], "
-                     "got <type 'int'>",
-                     e.exception.message)
-
-  def test_per_key_pipeline_checking_satisfied(self):
-    d = (self.p
-         | beam.Create(list(range(100))).with_output_types(int)
-         | ('GroupMod 3' >> beam.Map(lambda x: (x % 3, x))
-            .with_output_types(typehints.KV[int, int]))
-         | 'TopMod' >> combine.Top.PerKey(1, lambda a, b: a < b))
-
-    self.assertCompatible(typehints.Tuple[int, typehints.Iterable[int]],
-                          d.element_type)
-    assert_that(d, equal_to([(0, [99]), (1, [97]), (2, [98])]))
-    self.p.run()
-
-  def test_per_key_runtime_checking_satisfied(self):
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    d = (self.p
-         | beam.Create(list(range(21)))
-         | ('GroupMod 3' >> beam.Map(lambda x: (x % 3, x))
-            .with_output_types(typehints.KV[int, int]))
-         | 'TopMod' >> combine.Top.PerKey(1, lambda a, b: a < b))
-
-    self.assertCompatible(typehints.KV[int, typehints.Iterable[int]],
-                          d.element_type)
-    assert_that(d, equal_to([(0, [18]), (1, [19]), (2, [20])]))
-    self.p.run()
-
-  def test_sample_globally_pipeline_satisfied(self):
-    d = (self.p
-         | beam.Create([2, 2, 3, 3]).with_output_types(int)
-         | 'Sample' >> combine.Sample.FixedSizeGlobally(3))
-
-    self.assertCompatible(typehints.Iterable[int], d.element_type)
-
-    def matcher(expected_len):
-      def match(actual):
-        equal_to([expected_len])([len(actual[0])])
-      return match
-    assert_that(d, matcher(3))
-    self.p.run()
-
-  def test_sample_globally_runtime_satisfied(self):
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    d = (self.p
-         | beam.Create([2, 2, 3, 3]).with_output_types(int)
-         | 'Sample' >> combine.Sample.FixedSizeGlobally(2))
-
-    self.assertCompatible(typehints.Iterable[int], d.element_type)
-
-    def matcher(expected_len):
-      def match(actual):
-        equal_to([expected_len])([len(actual[0])])
-      return match
-    assert_that(d, matcher(2))
-    self.p.run()
-
-  def test_sample_per_key_pipeline_satisfied(self):
-    d = (self.p
-         | (beam.Create([(1, 2), (1, 2), (2, 3), (2, 3)])
-            .with_output_types(typehints.KV[int, int]))
-         | 'Sample' >> combine.Sample.FixedSizePerKey(2))
-
-    self.assertCompatible(typehints.KV[int, typehints.Iterable[int]],
-                          d.element_type)
-
-    def matcher(expected_len):
-      def match(actual):
-        for _, sample in actual:
-          equal_to([expected_len])([len(sample)])
-      return match
-    assert_that(d, matcher(2))
-    self.p.run()
-
-  def test_sample_per_key_runtime_satisfied(self):
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    d = (self.p
-         | (beam.Create([(1, 2), (1, 2), (2, 3), (2, 3)])
-            .with_output_types(typehints.KV[int, int]))
-         | 'Sample' >> combine.Sample.FixedSizePerKey(1))
-
-    self.assertCompatible(typehints.KV[int, typehints.Iterable[int]],
-                          d.element_type)
-
-    def matcher(expected_len):
-      def match(actual):
-        for _, sample in actual:
-          equal_to([expected_len])([len(sample)])
-      return match
-    assert_that(d, matcher(1))
-    self.p.run()
-
-  def test_to_list_pipeline_check_satisfied(self):
-    d = (self.p
-         | beam.Create((1, 2, 3, 4)).with_output_types(int)
-         | combine.ToList())
-
-    self.assertCompatible(typehints.List[int], d.element_type)
-
-    def matcher(expected):
-      def match(actual):
-        equal_to(expected)(actual[0])
-      return match
-    assert_that(d, matcher([1, 2, 3, 4]))
-    self.p.run()
-
-  def test_to_list_runtime_check_satisfied(self):
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    d = (self.p
-         | beam.Create(list('test')).with_output_types(str)
-         | combine.ToList())
-
-    self.assertCompatible(typehints.List[str], d.element_type)
-
-    def matcher(expected):
-      def match(actual):
-        equal_to(expected)(actual[0])
-      return match
-    assert_that(d, matcher(['e', 's', 't', 't']))
-    self.p.run()
-
-  def test_to_dict_pipeline_check_violated(self):
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      (self.p
-       | beam.Create([1, 2, 3, 4]).with_output_types(int)
-       | combine.ToDict())
-
-    self.assertEqual("Type hint violation for 'ParDo(CombineValuesDoFn)': "
-                     "requires Tuple[TypeVariable[K], "
-                     "Iterable[Tuple[TypeVariable[K], TypeVariable[V]]]] "
-                     "but got Tuple[None, Iterable[int]] for p_context",
-                     e.exception.message)
-
-  def test_to_dict_pipeline_check_satisfied(self):
-    d = (self.p
-         | beam.Create(
-             [(1, 2), (3, 4)]).with_output_types(typehints.Tuple[int, int])
-         | combine.ToDict())
-
-    self.assertCompatible(typehints.Dict[int, int], d.element_type)
-    assert_that(d, equal_to([{1: 2, 3: 4}]))
-    self.p.run()
-
-  def test_to_dict_runtime_check_satisfied(self):
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    d = (self.p
-         | (beam.Create([('1', 2), ('3', 4)])
-            .with_output_types(typehints.Tuple[str, int]))
-         | combine.ToDict())
-
-    self.assertCompatible(typehints.Dict[str, int], d.element_type)
-    assert_that(d, equal_to([{'1': 2, '3': 4}]))
-    self.p.run()
-
-  def test_runtime_type_check_python_type_error(self):
-    self.p.options.view_as(TypeOptions).runtime_type_check = True
-
-    with self.assertRaises(TypeError) as e:
-      (self.p
-       | beam.Create([1, 2, 3]).with_output_types(int)
-       | 'Len' >> beam.Map(lambda x: len(x)).with_output_types(int))
-      self.p.run()
-
-    # Our special type-checking related TypeError shouldn't have been raised.
-    # Instead the above pipeline should have triggered a regular Python runtime
-    # TypeError.
-    self.assertEqual("object of type 'int' has no len() [while running 'Len']",
-                     e.exception.message)
-    self.assertFalse(isinstance(e, typehints.TypeCheckError))
-
-  def test_pardo_type_inference(self):
-    self.assertEqual(int,
-                     beam.Filter(lambda x: False).infer_output_type(int))
-    self.assertEqual(typehints.Tuple[str, int],
-                     beam.Map(lambda x: (x, 1)).infer_output_type(str))
-
-  def test_gbk_type_inference(self):
-    self.assertEqual(
-        typehints.Tuple[str, typehints.Iterable[int]],
-        beam.core.GroupByKeyOnly().infer_output_type(typehints.KV[str, int]))
-
-  def test_pipeline_inference(self):
-    created = self.p | beam.Create(['a', 'b', 'c'])
-    mapped = created | 'pair with 1' >> beam.Map(lambda x: (x, 1))
-    grouped = mapped | beam.GroupByKey()
-    self.assertEqual(str, created.element_type)
-    self.assertEqual(typehints.KV[str, int], mapped.element_type)
-    self.assertEqual(typehints.KV[str, typehints.Iterable[int]],
-                     grouped.element_type)
-
-  def test_inferred_bad_kv_type(self):
-    with self.assertRaises(typehints.TypeCheckError) as e:
-      _ = (self.p
-           | beam.Create(['a', 'b', 'c'])
-           | 'Ungroupable' >> beam.Map(lambda x: (x, 0, 1.0))
-           | beam.GroupByKey())
-
-    self.assertEqual('Input type hint violation at GroupByKey: '
-                     'expected Tuple[TypeVariable[K], TypeVariable[V]], '
-                     'got Tuple[str, int, float]',
-                     e.exception.message)
-
-  def test_type_inference_command_line_flag_toggle(self):
-    self.p.options.view_as(TypeOptions).pipeline_type_check = False
-    x = self.p | 'C1' >> beam.Create([1, 2, 3, 4])
-    self.assertIsNone(x.element_type)
-
-    self.p.options.view_as(TypeOptions).pipeline_type_check = True
-    x = self.p | 'C2' >> beam.Create([1, 2, 3, 4])
-    self.assertEqual(int, x.element_type)
+# class PTransformTypeCheckTestCase(TypeHintTestCase):
+#
+#   def assertStartswith(self, msg, prefix):
+#     self.assertTrue(msg.startswith(prefix),
+#                     '"%s" does not start with "%s"' % (msg, prefix))
+#
+#   def setUp(self):
+#     self.p = TestPipeline()
+#
+#   def test_do_fn_pipeline_pipeline_type_check_satisfied(self):
+#     @with_input_types(int, int)
+#     @with_output_types(typehints.List[int])
+#     class AddWithFive(beam.DoFn):
+#       def process(self, context, five):
+#         return [context.element + five]
+#
+#     d = (self.p
+#          | 'T' >> beam.Create([1, 2, 3]).with_output_types(int)
+#          | 'Add' >> beam.ParDo(AddWithFive(), 5))
+#
+#     assert_that(d, equal_to([6, 7, 8]))
+#     self.p.run()
+#
+#   def test_do_fn_pipeline_pipeline_type_check_violated(self):
+#     @with_input_types(str, str)
+#     @with_output_types(typehints.List[str])
+#     class ToUpperCaseWithPrefix(beam.DoFn):
+#       def process(self, context, prefix):
+#         return [prefix + context.element.upper()]
+#
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | 'T' >> beam.Create([1, 2, 3]).with_output_types(int)
+#        | 'Upper' >> beam.ParDo(ToUpperCaseWithPrefix(), 'hello'))
+#
+#     self.assertEqual("Type hint violation for 'Upper': "
+#                      "requires <type 'str'> but got <type 'int'> for context",
+#                      e.exception.message)
+#
+#   def test_do_fn_pipeline_runtime_type_check_satisfied(self):
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     @with_input_types(int, int)
+#     @with_output_types(int)
+#     class AddWithNum(beam.DoFn):
+#       def process(self, context, num):
+#         return [context.element + num]
+#
+#     d = (self.p
+#          | 'T' >> beam.Create([1, 2, 3]).with_output_types(int)
+#          | 'Add' >> beam.ParDo(AddWithNum(), 5))
+#
+#     assert_that(d, equal_to([6, 7, 8]))
+#     self.p.run()
+#
+#   def test_do_fn_pipeline_runtime_type_check_violated(self):
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     @with_input_types(int, int)
+#     @with_output_types(typehints.List[int])
+#     class AddWithNum(beam.DoFn):
+#       def process(self, context, num):
+#         return [context.element + num]
+#
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | 'T' >> beam.Create(['1', '2', '3']).with_output_types(str)
+#        | 'Add' >> beam.ParDo(AddWithNum(), 5))
+#       self.p.run()
+#
+#     self.assertEqual("Type hint violation for 'Add': "
+#                      "requires <type 'int'> but got <type 'str'> for context",
+#                      e.exception.message)
+#
+#   def test_pardo_does_not_type_check_using_type_hint_decorators(self):
+#     @with_input_types(a=int)
+#     @with_output_types(typehints.List[str])
+#     def int_to_str(a):
+#       return [str(a)]
+#
+#     # The function above is expecting an int for its only parameter. However, it
+#     # will receive a str instead, which should result in a raised exception.
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | 'S' >> beam.Create(['b', 'a', 'r']).with_output_types(str)
+#        | 'ToStr' >> beam.FlatMap(int_to_str))
+#
+#     self.assertEqual("Type hint violation for 'ToStr': "
+#                      "requires <type 'int'> but got <type 'str'> for a",
+#                      e.exception.message)
+#
+#   def test_pardo_properly_type_checks_using_type_hint_decorators(self):
+#     @with_input_types(a=str)
+#     @with_output_types(typehints.List[str])
+#     def to_all_upper_case(a):
+#       return [a.upper()]
+#
+#     # If this type-checks than no error should be raised.
+#     d = (self.p
+#          | 'T' >> beam.Create(['t', 'e', 's', 't']).with_output_types(str)
+#          | 'Case' >> beam.FlatMap(to_all_upper_case))
+#     assert_that(d, equal_to(['T', 'E', 'S', 'T']))
+#     self.p.run()
+#
+#     # Output type should have been recognized as 'str' rather than List[str] to
+#     # do the flatten part of FlatMap.
+#     self.assertEqual(str, d.element_type)
+#
+#   def test_pardo_does_not_type_check_using_type_hint_methods(self):
+#     # The first ParDo outputs pcoll's of type int, however the second ParDo is
+#     # expecting pcoll's of type str instead.
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | 'S' >> beam.Create(['t', 'e', 's', 't']).with_output_types(str)
+#        | ('Score' >> beam.FlatMap(lambda x: [1] if x == 't' else [2])
+#           .with_input_types(str).with_output_types(int))
+#        | ('Upper' >> beam.FlatMap(lambda x: [x.upper()])
+#           .with_input_types(str).with_output_types(str)))
+#
+#     self.assertEqual("Type hint violation for 'Upper': "
+#                      "requires <type 'str'> but got <type 'int'> for x",
+#                      e.exception.message)
+#
+#   def test_pardo_properly_type_checks_using_type_hint_methods(self):
+#     # Pipeline should be created successfully without an error
+#     d = (self.p
+#          | 'S' >> beam.Create(['t', 'e', 's', 't']).with_output_types(str)
+#          | 'Dup' >> beam.FlatMap(lambda x: [x + x])
+#          .with_input_types(str).with_output_types(str)
+#          | 'Upper' >> beam.FlatMap(lambda x: [x.upper()])
+#          .with_input_types(str).with_output_types(str))
+#
+#     assert_that(d, equal_to(['TT', 'EE', 'SS', 'TT']))
+#     self.p.run()
+#
+#   def test_map_does_not_type_check_using_type_hints_methods(self):
+#     # The transform before 'Map' has indicated that it outputs PCollections with
+#     # int's, while Map is expecting one of str.
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | 'S' >> beam.Create([1, 2, 3, 4]).with_output_types(int)
+#        | 'Upper' >> beam.Map(lambda x: x.upper())
+#        .with_input_types(str).with_output_types(str))
+#
+#     self.assertEqual("Type hint violation for 'Upper': "
+#                      "requires <type 'str'> but got <type 'int'> for x",
+#                      e.exception.message)
+#
+#   def test_map_properly_type_checks_using_type_hints_methods(self):
+#     # No error should be raised if this type-checks properly.
+#     d = (self.p
+#          | 'S' >> beam.Create([1, 2, 3, 4]).with_output_types(int)
+#          | 'ToStr' >> beam.Map(lambda x: str(x))
+#          .with_input_types(int).with_output_types(str))
+#     assert_that(d, equal_to(['1', '2', '3', '4']))
+#     self.p.run()
+#
+#   def test_map_does_not_type_check_using_type_hints_decorator(self):
+#     @with_input_types(s=str)
+#     @with_output_types(str)
+#     def upper(s):
+#       return s.upper()
+#
+#     # Hinted function above expects a str at pipeline construction.
+#     # However, 'Map' should detect that Create has hinted an int instead.
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | 'S' >> beam.Create([1, 2, 3, 4]).with_output_types(int)
+#        | 'Upper' >> beam.Map(upper))
+#
+#     self.assertEqual("Type hint violation for 'Upper': "
+#                      "requires <type 'str'> but got <type 'int'> for s",
+#                      e.exception.message)
+#
+#   def test_map_properly_type_checks_using_type_hints_decorator(self):
+#     @with_input_types(a=bool)
+#     @with_output_types(int)
+#     def bool_to_int(a):
+#       return int(a)
+#
+#     # If this type-checks than no error should be raised.
+#     d = (self.p
+#          | 'bools' >> beam.Create([True, False, True]).with_output_types(bool)
+#          | 'to_ints' >> beam.Map(bool_to_int))
+#     assert_that(d, equal_to([1, 0, 1]))
+#     self.p.run()
+#
+#   def test_filter_does_not_type_check_using_type_hints_method(self):
+#     # Filter is expecting an int but instead looks to the 'left' and sees a str
+#     # incoming.
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | 'Strs' >> beam.Create(['1', '2', '3', '4', '5']).with_output_types(str)
+#        | 'Lower' >> beam.Map(lambda x: x.lower())
+#        .with_input_types(str).with_output_types(str)
+#        | 'Below 3' >> beam.Filter(lambda x: x < 3).with_input_types(int))
+#
+#     self.assertEqual("Type hint violation for 'Below 3': "
+#                      "requires <type 'int'> but got <type 'str'> for x",
+#                      e.exception.message)
+#
+#   def test_filter_type_checks_using_type_hints_method(self):
+#     # No error should be raised if this type-checks properly.
+#     d = (self.p
+#          | beam.Create(['1', '2', '3', '4', '5']).with_output_types(str)
+#          | 'ToInt' >> beam.Map(lambda x: int(x))
+#          .with_input_types(str).with_output_types(int)
+#          | 'Below 3' >> beam.Filter(lambda x: x < 3).with_input_types(int))
+#     assert_that(d, equal_to([1, 2]))
+#     self.p.run()
+#
+#   def test_filter_does_not_type_check_using_type_hints_decorator(self):
+#     @with_input_types(a=float)
+#     def more_than_half(a):
+#       return a > 0.50
+#
+#     # Func above was hinted to only take a float, yet an int will be passed.
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | 'Ints' >> beam.Create([1, 2, 3, 4]).with_output_types(int)
+#        | 'Half' >> beam.Filter(more_than_half))
+#
+#     self.assertEqual("Type hint violation for 'Half': "
+#                      "requires <type 'float'> but got <type 'int'> for a",
+#                      e.exception.message)
+#
+#   def test_filter_type_checks_using_type_hints_decorator(self):
+#     @with_input_types(b=int)
+#     def half(b):
+#       import random
+#       return bool(random.choice([0, 1]))
+#
+#     # Filter should deduce that it returns the same type that it takes.
+#     (self.p
+#      | 'Str' >> beam.Create(list(range(5))).with_output_types(int)
+#      | 'Half' >> beam.Filter(half)
+#      | 'ToBool' >> beam.Map(lambda x: bool(x))
+#      .with_input_types(int).with_output_types(bool))
+#
+#   def test_group_by_key_only_output_type_deduction(self):
+#     d = (self.p
+#          | 'Str' >> beam.Create(['t', 'e', 's', 't']).with_output_types(str)
+#          | ('Pair' >> beam.Map(lambda x: (x, ord(x)))
+#             .with_output_types(typehints.KV[str, str]))
+#          | beam.GroupByKeyOnly())
+#
+#     # Output type should correctly be deduced.
+#     # GBK-only should deduce that KV[A, B] is turned into KV[A, Iterable[B]].
+#     self.assertCompatible(typehints.KV[str, typehints.Iterable[str]],
+#                           d.element_type)
+#
+#   def test_group_by_key_output_type_deduction(self):
+#     d = (self.p
+#          | 'Str' >> beam.Create(list(range(20))).with_output_types(int)
+#          | ('PairNegative' >> beam.Map(lambda x: (x % 5, -x))
+#             .with_output_types(typehints.KV[int, int]))
+#          | beam.GroupByKey())
+#
+#     # Output type should correctly be deduced.
+#     # GBK should deduce that KV[A, B] is turned into KV[A, Iterable[B]].
+#     self.assertCompatible(typehints.KV[int, typehints.Iterable[int]],
+#                           d.element_type)
+#
+#   def test_group_by_key_only_does_not_type_check(self):
+#     # GBK will be passed raw int's here instead of some form of KV[A, B].
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | beam.Create([1, 2, 3]).with_output_types(int)
+#        | 'F' >> beam.GroupByKeyOnly())
+#
+#     self.assertEqual("Input type hint violation at F: "
+#                      "expected Tuple[TypeVariable[K], TypeVariable[V]], "
+#                      "got <type 'int'>",
+#                      e.exception.message)
+#
+#   def test_group_by_does_not_type_check(self):
+#     # Create is returning a List[int, str], rather than a KV[int, str] that is
+#     # aliased to Tuple[int, str].
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | (beam.Create(list(range(5)))
+#           .with_output_types(typehints.Iterable[int]))
+#        | 'T' >> beam.GroupByKey())
+#
+#     self.assertEqual("Input type hint violation at T: "
+#                      "expected Tuple[TypeVariable[K], TypeVariable[V]], "
+#                      "got Iterable[int]",
+#                      e.exception.message)
+#
+#   def test_pipeline_checking_pardo_insufficient_type_information(self):
+#     self.p.options.view_as(TypeOptions).type_check_strictness = 'ALL_REQUIRED'
+#
+#     # Type checking is enabled, but 'Create' doesn't pass on any relevant type
+#     # information to the ParDo.
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | 'Nums' >> beam.Create(list(range(5)))
+#        | 'ModDup' >> beam.FlatMap(lambda x: (x % 2, x)))
+#
+#     self.assertEqual('Pipeline type checking is enabled, however no output '
+#                      'type-hint was found for the PTransform Create(Nums)',
+#                      e.exception.message)
+#
+#   def test_pipeline_checking_gbk_insufficient_type_information(self):
+#     self.p.options.view_as(TypeOptions).type_check_strictness = 'ALL_REQUIRED'
+#     # Type checking is enabled, but 'Map' doesn't pass on any relevant type
+#     # information to GBK-only.
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | 'Nums' >> beam.Create(list(range(5))).with_output_types(int)
+#        | 'ModDup' >> beam.Map(lambda x: (x % 2, x))
+#        | beam.GroupByKeyOnly())
+#
+#     self.assertEqual('Pipeline type checking is enabled, however no output '
+#                      'type-hint was found for the PTransform '
+#                      'ParDo(ModDup)',
+#                      e.exception.message)
+#
+#   def test_disable_pipeline_type_check(self):
+#     self.p.options.view_as(TypeOptions).pipeline_type_check = False
+#
+#     # The pipeline below should raise a TypeError, however pipeline type
+#     # checking was disabled above.
+#     (self.p
+#      | 'T' >> beam.Create([1, 2, 3]).with_output_types(int)
+#      | 'Lower' >> beam.Map(lambda x: x.lower())
+#      .with_input_types(str).with_output_types(str))
+#
+#   def test_run_time_type_checking_enabled_type_violation(self):
+#     self.p.options.view_as(TypeOptions).pipeline_type_check = False
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     @with_output_types(str)
+#     @with_input_types(x=int)
+#     def int_to_string(x):
+#       return str(x)
+#
+#     # Function above has been type-hinted to only accept an int. But in the
+#     # pipeline execution it'll be passed a string due to the output of Create.
+#     (self.p
+#      | 'T' >> beam.Create(['some_string'])
+#      | 'ToStr' >> beam.Map(int_to_string))
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       self.p.run()
+#
+#     self.assertStartswith(
+#         e.exception.message,
+#         "Runtime type violation detected within ParDo(ToStr): "
+#         "Type-hint for argument: 'x' violated. "
+#         "Expected an instance of <type 'int'>, "
+#         "instead found some_string, an instance of <type 'str'>.")
+#
+#   def test_run_time_type_checking_enabled_types_satisfied(self):
+#     self.p.options.view_as(TypeOptions).pipeline_type_check = False
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     @with_output_types(typehints.KV[int, str])
+#     @with_input_types(x=str)
+#     def group_with_upper_ord(x):
+#       return (ord(x.upper()) % 5, x)
+#
+#     # Pipeline checking is off, but the above function should satisfy types at
+#     # run-time.
+#     result = (self.p
+#               | 'T' >> beam.Create(['t', 'e', 's', 't', 'i', 'n', 'g'])
+#               .with_output_types(str)
+#               | 'GenKeys' >> beam.Map(group_with_upper_ord)
+#               | 'O' >> beam.GroupByKey())
+#
+#     assert_that(result, equal_to([(1, ['g']),
+#                                   (3, ['s', 'i', 'n']),
+#                                   (4, ['t', 'e', 't'])]))
+#     self.p.run()
+#
+#   def test_pipeline_checking_satisfied_but_run_time_types_violate(self):
+#     self.p.options.view_as(TypeOptions).pipeline_type_check = False
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     @with_output_types(typehints.KV[bool, int])
+#     @with_input_types(a=int)
+#     def is_even_as_key(a):
+#       # Simulate a programming error, should be: return (a % 2 == 0, a)
+#       # However this returns KV[int, int]
+#       return (a % 2, a)
+#
+#     (self.p
+#      | 'Nums' >> beam.Create(list(range(5))).with_output_types(int)
+#      | 'IsEven' >> beam.Map(is_even_as_key)
+#      | 'Parity' >> beam.GroupByKey())
+#
+#     # Although all the types appear to be correct when checked at pipeline
+#     # construction. Runtime type-checking should detect the 'is_even_as_key' is
+#     # returning Tuple[int, int], instead of Tuple[bool, int].
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       self.p.run()
+#
+#     self.assertStartswith(
+#         e.exception.message,
+#         "Runtime type violation detected within ParDo(IsEven): "
+#         "Tuple[bool, int] hint type-constraint violated. "
+#         "The type of element #0 in the passed tuple is incorrect. "
+#         "Expected an instance of type bool, "
+#         "instead received an instance of type int.")
+#
+#   def test_pipeline_checking_satisfied_run_time_checking_satisfied(self):
+#     self.p.options.view_as(TypeOptions).pipeline_type_check = False
+#
+#     @with_output_types(typehints.KV[bool, int])
+#     @with_input_types(a=int)
+#     def is_even_as_key(a):
+#       # The programming error in the above test-case has now been fixed.
+#       # Everything should properly type-check.
+#       return (a % 2 == 0, a)
+#
+#     result = (self.p
+#               | 'Nums' >> beam.Create(list(range(5))).with_output_types(int)
+#               | 'IsEven' >> beam.Map(is_even_as_key)
+#               | 'Parity' >> beam.GroupByKey())
+#
+#     assert_that(result, equal_to([(False, [1, 3]), (True, [0, 2, 4])]))
+#     self.p.run()
+#
+#   def test_pipeline_runtime_checking_violation_simple_type_input(self):
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#     self.p.options.view_as(TypeOptions).pipeline_type_check = False
+#
+#     # The type-hinted applied via the 'with_input_types()' method indicates the
+#     # ParDo should receive an instance of type 'str', however an 'int' will be
+#     # passed instead.
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | beam.Create([1, 2, 3])
+#        | ('ToInt' >> beam.FlatMap(lambda x: [int(x)])
+#           .with_input_types(str).with_output_types(int)))
+#       self.p.run()
+#
+#     self.assertStartswith(
+#         e.exception.message,
+#         "Runtime type violation detected within ParDo(ToInt): "
+#         "Type-hint for argument: 'x' violated. "
+#         "Expected an instance of <type 'str'>, "
+#         "instead found 1, an instance of <type 'int'>.")
+#
+#   def test_pipeline_runtime_checking_violation_composite_type_input(self):
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#     self.p.options.view_as(TypeOptions).pipeline_type_check = False
+#
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | beam.Create([(1, 3.0), (2, 4.9), (3, 9.5)])
+#        | ('Add' >> beam.FlatMap(lambda x_y: [x_y[0] + x_y[1]])
+#           .with_input_types(typehints.Tuple[int, int]).with_output_types(int))
+#       )
+#       self.p.run()
+#
+#     self.assertStartswith(
+#         e.exception.message,
+#         "Runtime type violation detected within ParDo(Add): "
+#         "Type-hint for argument: 'y' violated. "
+#         "Expected an instance of <type 'int'>, "
+#         "instead found 3.0, an instance of <type 'float'>.")
+#
+#   def test_pipeline_runtime_checking_violation_simple_type_output(self):
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#     self.p.options.view_as(TypeOptions).pipeline_type_check = False
+#
+#     # The type-hinted applied via the 'returns()' method indicates the ParDo
+#     # should output an instance of type 'int', however a 'float' will be
+#     # generated instead.
+#     print("HINTS", ('ToInt' >> beam.FlatMap(
+#         lambda x: [float(x)]).with_input_types(int).with_output_types(
+#             int)).get_type_hints())
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | beam.Create([1, 2, 3])
+#        | ('ToInt' >> beam.FlatMap(lambda x: [float(x)])
+#           .with_input_types(int).with_output_types(int))
+#       )
+#       self.p.run()
+#
+#     self.assertStartswith(
+#         e.exception.message,
+#         "Runtime type violation detected within "
+#         "ParDo(ToInt): "
+#         "According to type-hint expected output should be "
+#         "of type <type 'int'>. Instead, received '1.0', "
+#         "an instance of type <type 'float'>.")
+#
+#   def test_pipeline_runtime_checking_violation_composite_type_output(self):
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#     self.p.options.view_as(TypeOptions).pipeline_type_check = False
+#
+#     # The type-hinted applied via the 'returns()' method indicates the ParDo
+#     # should return an instance of type: Tuple[float, int]. However, an instance
+#     # of 'int' will be generated instead.
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | beam.Create([(1, 3.0), (2, 4.9), (3, 9.5)])
+#        | ('Swap' >> beam.FlatMap(lambda x_y1: [x_y1[0] + x_y1[1]])
+#           .with_input_types(typehints.Tuple[int, float])
+#           .with_output_types(typehints.Tuple[float, int]))
+#       )
+#       self.p.run()
+#
+#     self.assertStartswith(
+#         e.exception.message,
+#         "Runtime type violation detected within "
+#         "ParDo(Swap): Tuple type constraint violated. "
+#         "Valid object instance must be of type 'tuple'. Instead, "
+#         "an instance of 'float' was received.")
+#
+#   def test_pipline_runtime_checking_violation_with_side_inputs_decorator(self):
+#     self.p.options.view_as(TypeOptions).pipeline_type_check = False
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     @with_output_types(int)
+#     @with_input_types(a=int, b=int)
+#     def add(a, b):
+#       return a + b
+#
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p | beam.Create([1, 2, 3, 4]) | 'Add 1' >> beam.Map(add, 1.0))
+#       self.p.run()
+#
+#     self.assertStartswith(
+#         e.exception.message,
+#         "Runtime type violation detected within ParDo(Add 1): "
+#         "Type-hint for argument: 'b' violated. "
+#         "Expected an instance of <type 'int'>, "
+#         "instead found 1.0, an instance of <type 'float'>.")
+#
+#   def test_pipline_runtime_checking_violation_with_side_inputs_via_method(self):
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#     self.p.options.view_as(TypeOptions).pipeline_type_check = False
+#
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | beam.Create([1, 2, 3, 4])
+#        | ('Add 1' >> beam.Map(lambda x, one: x + one, 1.0)
+#           .with_input_types(int, int)
+#           .with_output_types(float)))
+#       self.p.run()
+#
+#     self.assertStartswith(
+#         e.exception.message,
+#         "Runtime type violation detected within ParDo(Add 1): "
+#         "Type-hint for argument: 'one' violated. "
+#         "Expected an instance of <type 'int'>, "
+#         "instead found 1.0, an instance of <type 'float'>.")
+#
+#   def test_combine_properly_pipeline_type_checks_using_decorator(self):
+#     @with_output_types(int)
+#     @with_input_types(ints=typehints.Iterable[int])
+#     def sum_ints(ints):
+#       return sum(ints)
+#
+#     d = (self.p
+#          | 'T' >> beam.Create([1, 2, 3]).with_output_types(int)
+#          | 'Sum' >> beam.CombineGlobally(sum_ints))
+#
+#     self.assertEqual(int, d.element_type)
+#     assert_that(d, equal_to([6]))
+#     self.p.run()
+#
+#   def test_combine_func_type_hint_does_not_take_iterable_using_decorator(self):
+#     @with_output_types(int)
+#     @with_input_types(a=int)
+#     def bad_combine(a):
+#       5 + a
+#
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | 'M' >> beam.Create([1, 2, 3]).with_output_types(int)
+#        | 'Add' >> beam.CombineGlobally(bad_combine))
+#
+#     self.assertEqual(
+#         "All functions for a Combine PTransform must accept a "
+#         "single argument compatible with: Iterable[Any]. "
+#         "Instead a function with input type: <type 'int'> was received.",
+#         e.exception.message)
+#
+#   def test_combine_pipeline_type_propagation_using_decorators(self):
+#     @with_output_types(int)
+#     @with_input_types(ints=typehints.Iterable[int])
+#     def sum_ints(ints):
+#       return sum(ints)
+#
+#     @with_output_types(typehints.List[int])
+#     @with_input_types(n=int)
+#     def range_from_zero(n):
+#       return list(range(n+1))
+#
+#     d = (self.p
+#          | 'T' >> beam.Create([1, 2, 3]).with_output_types(int)
+#          | 'Sum' >> beam.CombineGlobally(sum_ints)
+#          | 'Range' >> beam.ParDo(range_from_zero))
+#
+#     self.assertEqual(int, d.element_type)
+#     assert_that(d, equal_to([0, 1, 2, 3, 4, 5, 6]))
+#     self.p.run()
+#
+#   def test_combine_runtime_type_check_satisfied_using_decorators(self):
+#     self.p.options.view_as(TypeOptions).pipeline_type_check = False
+#
+#     @with_output_types(int)
+#     @with_input_types(ints=typehints.Iterable[int])
+#     def iter_mul(ints):
+#       return reduce(operator.mul, ints, 1)
+#
+#     d = (self.p
+#          | 'K' >> beam.Create([5, 5, 5, 5]).with_output_types(int)
+#          | 'Mul' >> beam.CombineGlobally(iter_mul))
+#
+#     assert_that(d, equal_to([625]))
+#     self.p.run()
+#
+#   def test_combine_runtime_type_check_violation_using_decorators(self):
+#     self.p.options.view_as(TypeOptions).pipeline_type_check = False
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     # Combine fn is returning the incorrect type
+#     @with_output_types(int)
+#     @with_input_types(ints=typehints.Iterable[int])
+#     def iter_mul(ints):
+#       return str(reduce(operator.mul, ints, 1))
+#
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | 'K' >> beam.Create([5, 5, 5, 5]).with_output_types(int)
+#        | 'Mul' >> beam.CombineGlobally(iter_mul))
+#       self.p.run()
+#
+#     self.assertStartswith(
+#         e.exception.message,
+#         "Runtime type violation detected within "
+#         "ParDo(Mul/CombinePerKey/Combine/ParDo(CombineValuesDoFn)): "
+#         "Tuple[TypeVariable[K], int] hint type-constraint violated. "
+#         "The type of element #1 in the passed tuple is incorrect. "
+#         "Expected an instance of type int, "
+#         "instead received an instance of type str.")
+#
+#   def test_combine_pipeline_type_check_using_methods(self):
+#     d = (self.p
+#          | beam.Create(['t', 'e', 's', 't']).with_output_types(str)
+#          | ('concat' >> beam.CombineGlobally(lambda s: ''.join(s))
+#             .with_input_types(str).with_output_types(str)))
+#
+#     def matcher(expected):
+#       def match(actual):
+#         equal_to(expected)(list(actual[0]))
+#       return match
+#     assert_that(d, matcher('estt'))
+#     self.p.run()
+#
+#   def test_combine_runtime_type_check_using_methods(self):
+#     self.p.options.view_as(TypeOptions).pipeline_type_check = False
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     d = (self.p
+#          | beam.Create(list(range(5))).with_output_types(int)
+#          | ('Sum' >> beam.CombineGlobally(lambda s: sum(s))
+#             .with_input_types(int).with_output_types(int)))
+#
+#     assert_that(d, equal_to([10]))
+#     self.p.run()
+#
+#   def test_combine_pipeline_type_check_violation_using_methods(self):
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | beam.Create(list(range(3))).with_output_types(int)
+#        | ('SortJoin' >> beam.CombineGlobally(lambda s: ''.join(sorted(s)))
+#           .with_input_types(str).with_output_types(str)))
+#
+#     self.assertEqual("Input type hint violation at SortJoin: "
+#                      "expected <type 'str'>, got <type 'int'>",
+#                      e.exception.message)
+#
+#   def test_combine_runtime_type_check_violation_using_methods(self):
+#     self.p.options.view_as(TypeOptions).pipeline_type_check = False
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | beam.Create(list(range(3))).with_output_types(int)
+#        | ('SortJoin' >> beam.CombineGlobally(lambda s: ''.join(sorted(s)))
+#           .with_input_types(str).with_output_types(str)))
+#       self.p.run()
+#
+#     self.assertStartswith(
+#         e.exception.message,
+#         "Runtime type violation detected within "
+#         "ParDo(SortJoin/KeyWithVoid): "
+#         "Type-hint for argument: 'v' violated. "
+#         "Expected an instance of <type 'str'>, "
+#         "instead found 0, an instance of <type 'int'>.")
+#
+#   def test_combine_insufficient_type_hint_information(self):
+#     self.p.options.view_as(TypeOptions).type_check_strictness = 'ALL_REQUIRED'
+#
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | 'E' >> beam.Create(list(range(3))).with_output_types(int)
+#        | 'SortJoin' >> beam.CombineGlobally(lambda s: ''.join(sorted(s)))
+#        | 'F' >> beam.Map(lambda x: x + 1))
+#
+#     self.assertEqual(
+#         'Pipeline type checking is enabled, '
+#         'however no output type-hint was found for the PTransform '
+#         'ParDo(SortJoin/CombinePerKey/Combine/ParDo(CombineValuesDoFn))',
+#         e.exception.message)
+#
+#   def test_mean_globally_pipeline_checking_satisfied(self):
+#     d = (self.p
+#          | 'C' >> beam.Create(list(range(5))).with_output_types(int)
+#          | 'Mean' >> combine.Mean.Globally())
+#
+#     self.assertTrue(d.element_type is float)
+#     assert_that(d, equal_to([2.0]))
+#     self.p.run()
+#
+#   def test_mean_globally_pipeline_checking_violated(self):
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | 'C' >> beam.Create(['test']).with_output_types(str)
+#        | 'Mean' >> combine.Mean.Globally())
+#
+#     self.assertEqual("Type hint violation for 'ParDo(CombineValuesDoFn)': "
+#                      "requires Tuple[TypeVariable[K], "
+#                      "Iterable[Union[float, int, long]]] "
+#                      "but got Tuple[None, Iterable[str]] for p_context",
+#                      e.exception.message)
+#
+#   def test_mean_globally_runtime_checking_satisfied(self):
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     d = (self.p
+#          | 'C' >> beam.Create(list(range(5))).with_output_types(int)
+#          | 'Mean' >> combine.Mean.Globally())
+#
+#     self.assertTrue(d.element_type is float)
+#     assert_that(d, equal_to([2.0]))
+#     self.p.run()
+#
+#   def test_mean_globally_runtime_checking_violated(self):
+#     self.p.options.view_as(TypeOptions).pipeline_type_check = False
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | 'C' >> beam.Create(['t', 'e', 's', 't']).with_output_types(str)
+#        | 'Mean' >> combine.Mean.Globally())
+#       self.p.run()
+#       self.assertEqual("Runtime type violation detected for transform input "
+#                        "when executing ParDoFlatMap(Combine): Tuple[Any, "
+#                        "Iterable[Union[int, float]]] hint type-constraint "
+#                        "violated. The type of element #1 in the passed tuple "
+#                        "is incorrect. Iterable[Union[int, float]] hint "
+#                        "type-constraint violated. The type of element #0 in "
+#                        "the passed Iterable is incorrect: Union[int, float] "
+#                        "type-constraint violated. Expected an instance of one "
+#                        "of: ('int', 'float'), received str instead.",
+#                        e.exception.message)
+#
+#   def test_mean_per_key_pipeline_checking_satisfied(self):
+#     d = (self.p
+#          | beam.Create(list(range(5))).with_output_types(int)
+#          | ('EvenGroup' >> beam.Map(lambda x: (not x % 2, x))
+#             .with_output_types(typehints.KV[bool, int]))
+#          | 'EvenMean' >> combine.Mean.PerKey())
+#
+#     self.assertCompatible(typehints.KV[bool, float], d.element_type)
+#     assert_that(d, equal_to([(False, 2.0), (True, 2.0)]))
+#     self.p.run()
+#
+#   def test_mean_per_key_pipeline_checking_violated(self):
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | beam.Create(list(map(str, list(range(5))))).with_output_types(str)
+#        | ('UpperPair' >> beam.Map(lambda x: (x.upper(), x))
+#           .with_output_types(typehints.KV[str, str]))
+#        | 'EvenMean' >> combine.Mean.PerKey())
+#       self.p.run()
+#
+#     self.assertEqual("Type hint violation for 'ParDo(CombineValuesDoFn)': "
+#                      "requires Tuple[TypeVariable[K], "
+#                      "Iterable[Union[float, int, long]]] "
+#                      "but got Tuple[str, Iterable[str]] for p_context",
+#                      e.exception.message)
+#
+#   def test_mean_per_key_runtime_checking_satisfied(self):
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     d = (self.p
+#          | beam.Create(list(range(5))).with_output_types(int)
+#          | ('OddGroup' >> beam.Map(lambda x: (bool(x % 2), x))
+#             .with_output_types(typehints.KV[bool, int]))
+#          | 'OddMean' >> combine.Mean.PerKey())
+#
+#     self.assertCompatible(typehints.KV[bool, float], d.element_type)
+#     assert_that(d, equal_to([(False, 2.0), (True, 2.0)]))
+#     self.p.run()
+#
+#   def test_mean_per_key_runtime_checking_violated(self):
+#     self.p.options.view_as(TypeOptions).pipeline_type_check = False
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | beam.Create(list(range(5))).with_output_types(int)
+#        | ('OddGroup' >> beam.Map(lambda x: (x, str(bool(x % 2))))
+#           .with_output_types(typehints.KV[int, str]))
+#        | 'OddMean' >> combine.Mean.PerKey())
+#       self.p.run()
+#
+#     self.assertStartswith(
+#         e.exception.message,
+#         "Runtime type violation detected within "
+#         "ParDo(OddMean/CombinePerKey(MeanCombineFn)/"
+#         "Combine/ParDo(CombineValuesDoFn)): "
+#         "Type-hint for argument: 'p_context' violated: "
+#         "Tuple[TypeVariable[K], Iterable[Union[float, int, long]]]"
+#         " hint type-constraint violated. "
+#         "The type of element #1 in the passed tuple is incorrect. "
+#         "Iterable[Union[float, int, long]] "
+#         "hint type-constraint violated. The type of element #0 "
+#         "in the passed Iterable is incorrect: "
+#         "Union[float, int, long] type-constraint violated. "
+#         "Expected an instance of one of: "
+#         "('float', 'int', 'long'), received str instead.")
+#
+#   def test_count_globally_pipeline_type_checking_satisfied(self):
+#     d = (self.p
+#          | 'P' >> beam.Create(list(range(5))).with_output_types(int)
+#          | 'CountInt' >> combine.Count.Globally())
+#
+#     self.assertTrue(d.element_type is int)
+#     assert_that(d, equal_to([5]))
+#     self.p.run()
+#
+#   def test_count_globally_runtime_type_checking_satisfied(self):
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     d = (self.p
+#          | 'P' >> beam.Create(list(range(5))).with_output_types(int)
+#          | 'CountInt' >> combine.Count.Globally())
+#
+#     self.assertTrue(d.element_type is int)
+#     assert_that(d, equal_to([5]))
+#     self.p.run()
+#
+#   def test_count_perkey_pipeline_type_checking_satisfied(self):
+#     d = (self.p
+#          | beam.Create(list(range(5))).with_output_types(int)
+#          | ('EvenGroup' >> beam.Map(lambda x: (not x % 2, x))
+#             .with_output_types(typehints.KV[bool, int]))
+#          | 'CountInt' >> combine.Count.PerKey())
+#
+#     self.assertCompatible(typehints.KV[bool, int], d.element_type)
+#     assert_that(d, equal_to([(False, 2), (True, 3)]))
+#     self.p.run()
+#
+#   def test_count_perkey_pipeline_type_checking_violated(self):
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | beam.Create(list(range(5))).with_output_types(int)
+#        | 'CountInt' >> combine.Count.PerKey())
+#
+#     self.assertEqual("Input type hint violation at GroupByKey: "
+#                      "expected Tuple[TypeVariable[K], TypeVariable[V]], "
+#                      "got <type 'int'>",
+#                      e.exception.message)
+#
+#   def test_count_perkey_runtime_type_checking_satisfied(self):
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     d = (self.p
+#          | beam.Create(['t', 'e', 's', 't']).with_output_types(str)
+#          | 'DupKey' >> beam.Map(lambda x: (x, x))
+#          .with_output_types(typehints.KV[str, str])
+#          | 'CountDups' >> combine.Count.PerKey())
+#
+#     self.assertCompatible(typehints.KV[str, int], d.element_type)
+#     assert_that(d, equal_to([('e', 1), ('s', 1), ('t', 2)]))
+#     self.p.run()
+#
+#   def test_count_perelement_pipeline_type_checking_satisfied(self):
+#     d = (self.p
+#          | beam.Create([1, 1, 2, 3]).with_output_types(int)
+#          | 'CountElems' >> combine.Count.PerElement())
+#
+#     self.assertCompatible(typehints.KV[int, int], d.element_type)
+#     assert_that(d, equal_to([(1, 2), (2, 1), (3, 1)]))
+#     self.p.run()
+#
+#   def test_count_perelement_pipeline_type_checking_violated(self):
+#     self.p.options.view_as(TypeOptions).type_check_strictness = 'ALL_REQUIRED'
+#
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | 'f' >> beam.Create([1, 1, 2, 3])
+#        | 'CountElems' >> combine.Count.PerElement())
+#
+#     self.assertEqual('Pipeline type checking is enabled, however no output '
+#                      'type-hint was found for the PTransform '
+#                      'Create(f)',
+#                      e.exception.message)
+#
+#   def test_count_perelement_runtime_type_checking_satisfied(self):
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     d = (self.p
+#          | beam.Create([True, True, False, True, True])
+#          .with_output_types(bool)
+#          | 'CountElems' >> combine.Count.PerElement())
+#
+#     self.assertCompatible(typehints.KV[bool, int], d.element_type)
+#     assert_that(d, equal_to([(False, 1), (True, 4)]))
+#     self.p.run()
+#
+#   def test_top_of_pipeline_checking_satisfied(self):
+#     d = (self.p
+#          | beam.Create(list(range(5, 11))).with_output_types(int)
+#          | 'Top 3' >> combine.Top.Of(3, lambda x, y: x < y))
+#
+#     self.assertCompatible(typehints.Iterable[int],
+#                           d.element_type)
+#     assert_that(d, equal_to([[10, 9, 8]]))
+#     self.p.run()
+#
+#   def test_top_of_runtime_checking_satisfied(self):
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     d = (self.p
+#          | beam.Create(list('testing')).with_output_types(str)
+#          | 'AciiTop' >> combine.Top.Of(3, lambda x, y: x < y))
+#
+#     self.assertCompatible(typehints.Iterable[str], d.element_type)
+#     assert_that(d, equal_to([['t', 't', 's']]))
+#     self.p.run()
+#
+#   def test_per_key_pipeline_checking_violated(self):
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | beam.Create(list(range(100))).with_output_types(int)
+#        | 'Num + 1' >> beam.Map(lambda x: x + 1).with_output_types(int)
+#        | 'TopMod' >> combine.Top.PerKey(1, lambda a, b: a < b))
+#
+#     self.assertEqual("Input type hint violation at GroupByKey: "
+#                      "expected Tuple[TypeVariable[K], TypeVariable[V]], "
+#                      "got <type 'int'>",
+#                      e.exception.message)
+#
+#   def test_per_key_pipeline_checking_satisfied(self):
+#     d = (self.p
+#          | beam.Create(list(range(100))).with_output_types(int)
+#          | ('GroupMod 3' >> beam.Map(lambda x: (x % 3, x))
+#             .with_output_types(typehints.KV[int, int]))
+#          | 'TopMod' >> combine.Top.PerKey(1, lambda a, b: a < b))
+#
+#     self.assertCompatible(typehints.Tuple[int, typehints.Iterable[int]],
+#                           d.element_type)
+#     assert_that(d, equal_to([(0, [99]), (1, [97]), (2, [98])]))
+#     self.p.run()
+#
+#   def test_per_key_runtime_checking_satisfied(self):
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     d = (self.p
+#          | beam.Create(list(range(21)))
+#          | ('GroupMod 3' >> beam.Map(lambda x: (x % 3, x))
+#             .with_output_types(typehints.KV[int, int]))
+#          | 'TopMod' >> combine.Top.PerKey(1, lambda a, b: a < b))
+#
+#     self.assertCompatible(typehints.KV[int, typehints.Iterable[int]],
+#                           d.element_type)
+#     assert_that(d, equal_to([(0, [18]), (1, [19]), (2, [20])]))
+#     self.p.run()
+#
+#   def test_sample_globally_pipeline_satisfied(self):
+#     d = (self.p
+#          | beam.Create([2, 2, 3, 3]).with_output_types(int)
+#          | 'Sample' >> combine.Sample.FixedSizeGlobally(3))
+#
+#     self.assertCompatible(typehints.Iterable[int], d.element_type)
+#
+#     def matcher(expected_len):
+#       def match(actual):
+#         equal_to([expected_len])([len(actual[0])])
+#       return match
+#     assert_that(d, matcher(3))
+#     self.p.run()
+#
+#   def test_sample_globally_runtime_satisfied(self):
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     d = (self.p
+#          | beam.Create([2, 2, 3, 3]).with_output_types(int)
+#          | 'Sample' >> combine.Sample.FixedSizeGlobally(2))
+#
+#     self.assertCompatible(typehints.Iterable[int], d.element_type)
+#
+#     def matcher(expected_len):
+#       def match(actual):
+#         equal_to([expected_len])([len(actual[0])])
+#       return match
+#     assert_that(d, matcher(2))
+#     self.p.run()
+#
+#   def test_sample_per_key_pipeline_satisfied(self):
+#     d = (self.p
+#          | (beam.Create([(1, 2), (1, 2), (2, 3), (2, 3)])
+#             .with_output_types(typehints.KV[int, int]))
+#          | 'Sample' >> combine.Sample.FixedSizePerKey(2))
+#
+#     self.assertCompatible(typehints.KV[int, typehints.Iterable[int]],
+#                           d.element_type)
+#
+#     def matcher(expected_len):
+#       def match(actual):
+#         for _, sample in actual:
+#           equal_to([expected_len])([len(sample)])
+#       return match
+#     assert_that(d, matcher(2))
+#     self.p.run()
+#
+#   def test_sample_per_key_runtime_satisfied(self):
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     d = (self.p
+#          | (beam.Create([(1, 2), (1, 2), (2, 3), (2, 3)])
+#             .with_output_types(typehints.KV[int, int]))
+#          | 'Sample' >> combine.Sample.FixedSizePerKey(1))
+#
+#     self.assertCompatible(typehints.KV[int, typehints.Iterable[int]],
+#                           d.element_type)
+#
+#     def matcher(expected_len):
+#       def match(actual):
+#         for _, sample in actual:
+#           equal_to([expected_len])([len(sample)])
+#       return match
+#     assert_that(d, matcher(1))
+#     self.p.run()
+#
+#   def test_to_list_pipeline_check_satisfied(self):
+#     d = (self.p
+#          | beam.Create((1, 2, 3, 4)).with_output_types(int)
+#          | combine.ToList())
+#
+#     self.assertCompatible(typehints.List[int], d.element_type)
+#
+#     def matcher(expected):
+#       def match(actual):
+#         equal_to(expected)(actual[0])
+#       return match
+#     assert_that(d, matcher([1, 2, 3, 4]))
+#     self.p.run()
+#
+#   def test_to_list_runtime_check_satisfied(self):
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     d = (self.p
+#          | beam.Create(list('test')).with_output_types(str)
+#          | combine.ToList())
+#
+#     self.assertCompatible(typehints.List[str], d.element_type)
+#
+#     def matcher(expected):
+#       def match(actual):
+#         equal_to(expected)(actual[0])
+#       return match
+#     assert_that(d, matcher(['e', 's', 't', 't']))
+#     self.p.run()
+#
+#   def test_to_dict_pipeline_check_violated(self):
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       (self.p
+#        | beam.Create([1, 2, 3, 4]).with_output_types(int)
+#        | combine.ToDict())
+#
+#     self.assertEqual("Type hint violation for 'ParDo(CombineValuesDoFn)': "
+#                      "requires Tuple[TypeVariable[K], "
+#                      "Iterable[Tuple[TypeVariable[K], TypeVariable[V]]]] "
+#                      "but got Tuple[None, Iterable[int]] for p_context",
+#                      e.exception.message)
+#
+#   def test_to_dict_pipeline_check_satisfied(self):
+#     d = (self.p
+#          | beam.Create(
+#              [(1, 2), (3, 4)]).with_output_types(typehints.Tuple[int, int])
+#          | combine.ToDict())
+#
+#     self.assertCompatible(typehints.Dict[int, int], d.element_type)
+#     assert_that(d, equal_to([{1: 2, 3: 4}]))
+#     self.p.run()
+#
+#   def test_to_dict_runtime_check_satisfied(self):
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     d = (self.p
+#          | (beam.Create([('1', 2), ('3', 4)])
+#             .with_output_types(typehints.Tuple[str, int]))
+#          | combine.ToDict())
+#
+#     self.assertCompatible(typehints.Dict[str, int], d.element_type)
+#     assert_that(d, equal_to([{'1': 2, '3': 4}]))
+#     self.p.run()
+#
+#   def test_runtime_type_check_python_type_error(self):
+#     self.p.options.view_as(TypeOptions).runtime_type_check = True
+#
+#     with self.assertRaises(TypeError) as e:
+#       (self.p
+#        | beam.Create([1, 2, 3]).with_output_types(int)
+#        | 'Len' >> beam.Map(lambda x: len(x)).with_output_types(int))
+#       self.p.run()
+#
+#     # Our special type-checking related TypeError shouldn't have been raised.
+#     # Instead the above pipeline should have triggered a regular Python runtime
+#     # TypeError.
+#     self.assertEqual("object of type 'int' has no len() [while running 'Len']",
+#                      e.exception.message)
+#     self.assertFalse(isinstance(e, typehints.TypeCheckError))
+#
+#   def test_pardo_type_inference(self):
+#     self.assertEqual(int,
+#                      beam.Filter(lambda x: False).infer_output_type(int))
+#     self.assertEqual(typehints.Tuple[str, int],
+#                      beam.Map(lambda x: (x, 1)).infer_output_type(str))
+#
+#   def test_gbk_type_inference(self):
+#     self.assertEqual(
+#         typehints.Tuple[str, typehints.Iterable[int]],
+#         beam.core.GroupByKeyOnly().infer_output_type(typehints.KV[str, int]))
+#
+#   def test_pipeline_inference(self):
+#     created = self.p | beam.Create(['a', 'b', 'c'])
+#     mapped = created | 'pair with 1' >> beam.Map(lambda x: (x, 1))
+#     grouped = mapped | beam.GroupByKey()
+#     self.assertEqual(str, created.element_type)
+#     self.assertEqual(typehints.KV[str, int], mapped.element_type)
+#     self.assertEqual(typehints.KV[str, typehints.Iterable[int]],
+#                      grouped.element_type)
+#
+#   def test_inferred_bad_kv_type(self):
+#     with self.assertRaises(typehints.TypeCheckError) as e:
+#       _ = (self.p
+#            | beam.Create(['a', 'b', 'c'])
+#            | 'Ungroupable' >> beam.Map(lambda x: (x, 0, 1.0))
+#            | beam.GroupByKey())
+#
+#     self.assertEqual('Input type hint violation at GroupByKey: '
+#                      'expected Tuple[TypeVariable[K], TypeVariable[V]], '
+#                      'got Tuple[str, int, float]',
+#                      e.exception.message)
+#
+#   def test_type_inference_command_line_flag_toggle(self):
+#     self.p.options.view_as(TypeOptions).pipeline_type_check = False
+#     x = self.p | 'C1' >> beam.Create([1, 2, 3, 4])
+#     self.assertIsNone(x.element_type)
+#
+#     self.p.options.view_as(TypeOptions).pipeline_type_check = True
+#     x = self.p | 'C2' >> beam.Create([1, 2, 3, 4])
+#     self.assertEqual(int, x.element_type)
 
 
 if __name__ == '__main__':
