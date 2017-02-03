@@ -117,12 +117,16 @@ class TypeCheckWrapperDoFn(DoFn):
     try:
       check_constraint(type_constraint, datum)
     except CompositeTypeHintError as e:
-      raise TypeCheckError, e.message, sys.exc_info()[2]
+      exn = TypeCheckError(e.message)
+      exn.__traceback__ = sys.exc_info()[2]
+      raise exn
     except SimpleTypeHintError:
       error_msg = ("According to type-hint expected %s should be of type %s. "
                    "Instead, received '%s', an instance of type %s."
                    % (datum_type, type_constraint, datum, type(datum)))
-      raise TypeCheckError, error_msg, sys.exc_info()[2]
+      exn = TypeCheckError(error_msg)
+      exn.__traceback__ = sys.exc_info()[2]
+      raise exn
 
 
 class OutputCheckWrapperDoFn(DoFn):
@@ -138,7 +142,9 @@ class OutputCheckWrapperDoFn(DoFn):
     except TypeCheckError as e:
       error_msg = ('Runtime type violation detected within ParDo(%s): '
                    '%s' % (self.full_label, e))
-      raise TypeCheckError, error_msg, sys.exc_info()[2]
+      exn = TypeCheckError(error_msg)
+      exn.__traceback__ = sys.exc_info()[2]
+      raise exn
     else:
       return self._check_type(result)
 
@@ -212,7 +218,9 @@ class OutputCheckWrapperNewDoFn(AbstractDoFnWrapper):
     except TypeCheckError as e:
       error_msg = ('Runtime type violation detected within ParDo(%s): '
                    '%s' % (self.full_label, e))
-      raise TypeCheckError, error_msg, sys.exc_info()[2]
+      exn = TypeCheckError(error_msg)
+      exn.__traceback__ = sys.exc_info()[2]
+      raise exn
     else:
       return self._check_type(result)
 
@@ -303,9 +311,11 @@ class TypeCheckWrapperNewDoFn(AbstractDoFnWrapper):
     try:
       check_constraint(type_constraint, datum)
     except CompositeTypeHintError as e:
-      raise TypeCheckError, e.message, sys.exc_info()[2]
+      exn = TypeCheckError(e.message)
+      exn.__traceback__ = sys.exc_info()[2]
     except SimpleTypeHintError:
       error_msg = ("According to type-hint expected %s should be of type %s. "
                    "Instead, received '%s', an instance of type %s."
                    % (datum_type, type_constraint, datum, type(datum)))
-      raise TypeCheckError, error_msg, sys.exc_info()[2]
+      exn = TypeCheckError(error_msg)
+      exn.__traceback__ = sys.exc_info()[2]

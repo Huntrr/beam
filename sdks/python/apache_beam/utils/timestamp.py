@@ -101,6 +101,16 @@ class Timestamp(object):
       other = Timestamp.of(other)
     return cmp(self.micros, other.micros)
 
+  def __lt__(self, other):
+    if not isinstance(other, Duration):
+      other = Timestamp.of(other)
+    return self.micros < other.micros
+
+  def __eq__(self, other):
+    if not isinstance(other, Duration):
+      other = Timestamp.of(other)
+    return self.micros == other.micros
+
   def __hash__(self):
     return hash(self.micros)
 

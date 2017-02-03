@@ -466,7 +466,7 @@ class _CompressedFile(object):
       line = self._read_from_internal_buffer(
           lambda: self._read_buffer.readline())
       buf.write(line)
-      if line.endswith('\n') or not line:
+      if line.endswith(bytes(b'\n')) or not line:
         break  # Newline or EOF reached.
 
     return buf.getvalue()
@@ -802,4 +802,4 @@ class TextFileSink(FileSink):
     """Writes a single encoded record."""
     file_handle.write(encoded_value)
     if self.append_trailing_newlines:
-      file_handle.write('\n')
+      file_handle.write(bytes(b'\n'))

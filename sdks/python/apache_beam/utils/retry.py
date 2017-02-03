@@ -185,7 +185,8 @@ def with_exponential_backoff(
               if hasattr(exn, 'with_traceback'):
                 raise exn.with_traceback(exn_traceback)
               else:
-                raise exn, None, exn_traceback
+                exn.__traceback__ = exn_traceback
+                raise exn
 
             logger(str(
                 u'Retry with exponential backoff: waiting for %s seconds '

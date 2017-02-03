@@ -72,7 +72,7 @@ def create_runner(runner_name):
 
   if '.' in runner_name:
     module, runner = runner_name.rsplit('.', 1)
-    return getattr(__import__(module, {}, {}, [bytes(runner)], -1), bytes(runner))()
+    return getattr(__import__(module, {}, {}, [runner]), runner)()
   else:
     raise ValueError(
         'Unexpected pipeline runner: %s. Valid values are %s '

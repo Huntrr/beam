@@ -30,7 +30,8 @@ from __future__ import unicode_literals
 from builtins import chr
 from builtins import range
 from builtins import object
-from types import NoneType
+
+NoneType = type(None)
 
 from apache_beam.coders import observable
 from apache_beam.utils.timestamp import Timestamp

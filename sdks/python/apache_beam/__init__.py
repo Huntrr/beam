@@ -67,10 +67,6 @@ from __future__ import unicode_literals
 import sys
 
 
-if sys.version_info.major != 2:
-  raise RuntimeError(
-      'Dataflow SDK for Python is supported only on Python 2.7. '
-      'It is not supported on Python [%s].' % sys.version)
 
 # pylint: disable=wrong-import-position
 import apache_beam.internal.pickler

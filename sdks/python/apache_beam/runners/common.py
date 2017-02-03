@@ -292,7 +292,9 @@ class DoFnRunner(Receiver):
     if args and isinstance(args[0], str):
       args = (args[0] + " [while running '%s']" % self.step_name,) + args[1:]
       # Poor man's exception chaining.
-      raise type(exn), args, sys.exc_info()[2]
+      exn = type(exn)(args)
+      exn.__traceback__ =  sys.exc_info()[2]
+      raise exn
     else:
       raise
 

@@ -26,12 +26,12 @@ import codecs
 from datetime import datetime
 import getpass
 import json
+import io
 import logging
 import os
 import re
 import time
 
-from io import StringIO
 
 from apitools.base.py import encoding
 from apitools.base.py import exceptions
@@ -429,7 +429,7 @@ class DataflowApplicationClient(object):
     if job_location:
       gcs_or_local_path = os.path.dirname(job_location)
       file_name = os.path.basename(job_location)
-      self.stage_file(gcs_or_local_path, file_name, StringIO(job.json()))
+      self.stage_file(gcs_or_local_path, file_name, io.BytesIO(job.json()))
 
     if not template_location:
       return self.submit_job_description(job)

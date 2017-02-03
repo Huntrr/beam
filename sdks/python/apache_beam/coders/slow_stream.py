@@ -19,6 +19,8 @@
 from __future__ import unicode_literals
 
 from builtins import chr
+from builtins import str
+from builtins import bytes
 from builtins import object
 import struct
 
@@ -53,13 +55,13 @@ class OutputStream(object):
         break
 
   def write_bigendian_int64(self, v):
-    self.write(struct.pack('>q', v))
+    self.write(struct.pack(bytes(b'>q'), v))
 
   def write_bigendian_int32(self, v):
-    self.write(struct.pack('>i', v))
+    self.write(struct.pack(bytes(b'>i'), v))
 
   def write_bigendian_double(self, v):
-    self.write(struct.pack('>d', v))
+    self.write(struct.pack(bytes(b'>d'), v))
 
   def get(self):
     return bytes(b'').join(self.data)
@@ -111,7 +113,7 @@ class InputStream(object):
 
   def read_byte(self):
     self.pos += 1
-    return ord(self.data[self.pos - 1])
+    return ord(self.data[self.pos - 1:self.pos])
 
   def read_var_int64(self):
     shift = 0
@@ -133,13 +135,13 @@ class InputStream(object):
     return result
 
   def read_bigendian_int64(self):
-    return struct.unpack('>q', self.read(8))[0]
+    return struct.unpack(bytes(b'>q'), self.read(8))[0]
 
   def read_bigendian_int32(self):
-    return struct.unpack('>i', self.read(4))[0]
+    return struct.unpack(bytes(b'>i'), self.read(4))[0]
 
   def read_bigendian_double(self):
-    return struct.unpack('>d', self.read(8))[0]
+    return struct.unpack(bytes(b'>d'), self.read(8))[0]
 
 
 def get_varint_size(v):

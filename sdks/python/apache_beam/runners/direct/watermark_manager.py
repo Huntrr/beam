@@ -22,6 +22,7 @@ from __future__ import unicode_literals
 
 from builtins import object
 import threading
+import logging
 
 from apache_beam import pipeline
 from apache_beam import pvalue
@@ -218,7 +219,6 @@ class TransformWatermarks(object):
     with self._lock:
       if self._fired_timers:
         return  False
-
       should_fire = (
           self._earliest_hold < WatermarkManager.WATERMARK_POS_INF and
           self._input_watermark == WatermarkManager.WATERMARK_POS_INF)

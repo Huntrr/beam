@@ -161,7 +161,7 @@ class _TextSource(filebasedsource.FileBasedSource):
 
       # Using find() here is more efficient than a linear scan of the byte
       # array.
-      next_lf = read_buffer.data.find(bytes('\n'), current_pos)
+      next_lf = read_buffer.data.find(bytes(b'\n'), current_pos)
       if next_lf >= 0:
         if next_lf > 0 and read_buffer.data[next_lf - 1] == bytes(b'\r'):
           # Found a '\r\n'. Accepting that as the next separator.
