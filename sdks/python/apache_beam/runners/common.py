@@ -51,6 +51,153 @@ class Receiver(object):
     raise NotImplementedError
 
 
+class DoFnSignature(object):
+
+  class Method(object):
+    def __init__(self):
+      self.default_args = {}
+      self.method = None
+
+  def __init__(self):
+    self.process_method = None
+    self.start_bundle_method = None
+    self.stop_bundle_method = None
+    self.initial_restriction_method = None
+    self.new_tracker_method = None
+    self.restriction_coder_method = None
+
+  @staticmethod
+  def create_signature(do_fn):
+    # TODO: pass and return a DoFnSignature
+    pass
+
+
+class DoFnInvoker(object):
+
+  def __init__(self, signature, window_fn, tagged_receivers, side_inputs,
+              place_holders, *args, **kwargs):
+    self.signature = signature
+    self.window_fn = window_fn
+    self.side_inputs = side_inputs
+    self.tagged_receivers = tagged_receivers
+    self.args = args
+    self.kwargs = kwargs
+    self.place_holders = place_holders
+
+    self.has_windowed_inputs = not all(
+        si.is_globally_windowed() for si in self.side_inputs)
+
+    # Optimize for the common case.
+    self.main_receivers = as_receiver(tagged_receivers[None])
+
+
+  @staticmethod
+  def create_invoker(signature, use_simple_invoker, window_fn, tagged_receivers, side_inputs, *args, **kwargs):
+    if use_simple_invoker:
+      return SimpleInvoker(signature, window_fn, tagged_receivers,
+                           side_inputs, *args, **kwargs)
+    else:
+      return PerWindowInvoker(signature, window_fn, tagged_receivers, side_inputs, *args, **kwargs)
+
+  def invoke_process_element(self, *args, **kwargs):
+    raise NotImplementedError
+
+  def invoke_start_bundle(self, *args, **kwargs):
+    raise NotImplementedError
+
+  def invoke_stop_bundle(self, *args, **kwargs):
+    raise NotImplementedError
+
+  def process_outputs(self, windowed_input_element, results):
+    """Dispatch the result of computation to the appropriate receivers.
+
+    A value wrapped in a SideOutputValue object will be unwrapped and
+    then dispatched to the appropriate indexed output.
+    """
+    if results is None:
+      return
+    for result in results:
+      tag = None
+      if isinstance(result, SideOutputValue):
+        tag = result.tag
+        if not isinstance(tag, basestring):
+          raise TypeError('In %s, tag %s is not a string' % (self, tag))
+        result = result.value
+      if isinstance(result, WindowedValue):
+        windowed_value = result
+        if (windowed_input_element is not None
+            and len(windowed_input_element.windows) != 1):
+          windowed_value.windows *= len(windowed_input_element.windows)
+      elif windowed_input_element is None:
+        # Start and finish have no element from which to grab context,
+        # but may emit elements.
+        if isinstance(result, TimestampedValue):
+          value = result.value
+          timestamp = result.timestamp
+          assign_context = NoContext(value, timestamp)
+        else:
+          value = result
+          timestamp = -1
+          assign_context = NoContext(value)
+        windowed_value = WindowedValue(
+            value, timestamp, self.window_fn.assign(assign_context))
+      elif isinstance(result, TimestampedValue):
+        assign_context = WindowFn.AssignContext(result.timestamp, result.value)
+        windowed_value = WindowedValue(
+            result.value, result.timestamp,
+            self.window_fn.assign(assign_context))
+        if len(windowed_input_element.windows) != 1:
+          windowed_value.windows *= len(windowed_input_element.windows)
+      else:
+        windowed_value = windowed_input_element.with_value(result)
+      if tag is None:
+        self.main_receivers.receive(windowed_value)
+      else:
+        self.tagged_receivers[tag].output(windowed_value)
+
+
+class SimpleInvoker(DoFnInvoker):
+
+  def invoke_process_element(self, element):
+    self.process_outputs(element, self.signature.process_method(element.value))
+
+  def invoke_start_bundle(self, args, kwargs):
+    pass
+
+  def invoke_stop_bundle(self, args, kwargs):
+    pass
+
+
+class PerWindowInvoker(DoFnInvoker):
+
+  def invoke_process_element(self, element):
+    if self.has_windowed_inputs:
+      window, = element.windows
+      args, kwargs = util.insert_values_in_args(
+          self.args, self.kwargs, [si[window] for si in self.side_inputs])
+    else:
+      args, kwargs = self.args, self.kwargs
+    # TODO(sourabhbajaj): Investigate why we can't use `is` instead of ==
+    for i, p in self.placeholders:
+      if p == core.DoFn.ElementParam:
+        args[i] = element.value
+      elif p == core.DoFn.ContextParam:
+        args[i] = self.context
+      elif p == core.DoFn.WindowParam:
+        args[i] = window
+      elif p == core.DoFn.TimestampParam:
+        args[i] = element.timestamp
+    if not kwargs:
+      self.process_outputs(element, self.signature.process_method(*args))
+    else:
+      self.process_outputs(element, self.signature.process_method(*args, **kwargs))
+
+  def invoke_start_bundle(self, args, kwargs):
+    pass
+
+  def invoke_stop_bundle(self, args, kwargs):
+    pass
+
 class DoFnRunner(Receiver):
   """A helper class for executing ParDo operations.
   """
@@ -104,8 +251,7 @@ class DoFnRunner(Receiver):
     else:
       self.logging_context = get_logging_context(logger, step_name=step_name)
 
-    # Optimize for the common case.
-    self.main_receivers = as_receiver(tagged_receivers[None])
+
 
     # TODO(sourabh): Deprecate the use of context
     if state:
@@ -121,26 +267,33 @@ class DoFnRunner(Receiver):
 
     # Stash values for use in dofn_process.
     self.side_inputs = side_inputs
-    self.has_windowed_inputs = not all(
-        si.is_globally_windowed() for si in self.side_inputs)
+
 
     self.args = args if args else []
     self.kwargs = kwargs if kwargs else {}
     self.dofn = fn
-    self.dofn_process = fn.process
 
-    arguments, _, _, defaults = self.dofn.get_function_arguments('process')
-    defaults = defaults if defaults else []
+    # self.dofn_process = fn.process
+    self.dofn_signature = DoFnSignature.create_signature(fn)
+
+    # arguments, _, _, defaults = self.dofn.get_function_arguments('process')
+    # defaults = defaults if defaults else []
+
     self_in_args = int(self.dofn.is_process_bounded())
-
+    default_arg_values = self.dofn_signature.process_method.default_args.values()
     self.use_simple_invoker = (
-        not side_inputs and not args and not kwargs and not defaults)
+        not side_inputs and not args and not kwargs and not default_arg_values)
+
+
+
+    self.dofn_invoker = DoFnInvoker.create_invoker(self.dofn_signature, self.use_simple_invoker)
+
     if self.use_simple_invoker:
       # As we're using the simple invoker we don't need to compute placeholders
       return
 
     self.has_windowed_inputs = (self.has_windowed_inputs or
-                                core.DoFn.WindowParam in defaults)
+                                core.DoFn.WindowParam in default_arg_values)
 
     # Try to prepare all the arguments that can just be filled in
     # without any additional work. in the process function.
@@ -194,8 +347,8 @@ class DoFnRunner(Receiver):
   def receive(self, windowed_value):
     self.process(windowed_value)
 
-  def _dofn_simple_invoker(self, element):
-    self._process_outputs(element, self.dofn_process(element.value))
+  # def _dofn_simple_invoker(self, element):
+  #   self._process_outputs(element, self.dofn_process(element.value))
 
   def _dofn_per_window_invoker(self, element):
     if self.has_windowed_inputs:
@@ -250,19 +403,16 @@ class DoFnRunner(Receiver):
       self.logging_context.exit()
 
   def start(self):
-    self._invoke_bundle_method('start_bundle')
+    self.dofn_invoker.start_bundle()
 
   def finish(self):
-    self._invoke_bundle_method('finish_bundle')
+    self.dofn_invoker.finish_bundle()
 
   def process(self, element):
     try:
       self.logging_context.enter()
       self.scoped_metrics_container.enter()
-      if self.use_simple_invoker:
-        self._dofn_simple_invoker(element)
-      else:
-        self._dofn_invoker(element)
+      self.dofn_invoker.process(element)
     except BaseException as exn:
       self.reraise_augmented(exn)
     finally:
@@ -280,52 +430,7 @@ class DoFnRunner(Receiver):
     else:
       raise
 
-  def _process_outputs(self, windowed_input_element, results):
-    """Dispatch the result of computation to the appropriate receivers.
 
-    A value wrapped in a SideOutputValue object will be unwrapped and
-    then dispatched to the appropriate indexed output.
-    """
-    if results is None:
-      return
-    for result in results:
-      tag = None
-      if isinstance(result, SideOutputValue):
-        tag = result.tag
-        if not isinstance(tag, basestring):
-          raise TypeError('In %s, tag %s is not a string' % (self, tag))
-        result = result.value
-      if isinstance(result, WindowedValue):
-        windowed_value = result
-        if (windowed_input_element is not None
-            and len(windowed_input_element.windows) != 1):
-          windowed_value.windows *= len(windowed_input_element.windows)
-      elif windowed_input_element is None:
-        # Start and finish have no element from which to grab context,
-        # but may emit elements.
-        if isinstance(result, TimestampedValue):
-          value = result.value
-          timestamp = result.timestamp
-          assign_context = NoContext(value, timestamp)
-        else:
-          value = result
-          timestamp = -1
-          assign_context = NoContext(value)
-        windowed_value = WindowedValue(
-            value, timestamp, self.window_fn.assign(assign_context))
-      elif isinstance(result, TimestampedValue):
-        assign_context = WindowFn.AssignContext(result.timestamp, result.value)
-        windowed_value = WindowedValue(
-            result.value, result.timestamp,
-            self.window_fn.assign(assign_context))
-        if len(windowed_input_element.windows) != 1:
-          windowed_value.windows *= len(windowed_input_element.windows)
-      else:
-        windowed_value = windowed_input_element.with_value(result)
-      if tag is None:
-        self.main_receivers.receive(windowed_value)
-      else:
-        self.tagged_receivers[tag].output(windowed_value)
 
 
 class NoContext(WindowFn.AssignContext):

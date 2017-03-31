@@ -50,6 +50,8 @@ from apache_beam.typehints import WithTypeHints
 from apache_beam.typehints.trivial_inference import element_type
 from apache_beam.utils.pipeline_options import TypeOptions
 
+from collections import namedtuple
+
 
 # Type variables
 T = typehints.TypeVariable('T')
@@ -113,6 +115,15 @@ class DoFnProcessContext(DoFnContext):
       self.windows = windowed_value.windows
 
 
+ElementAndRestriction = namedtuple(
+    'ElementAndRestriction', 'element restriction')
+
+
+ProcessContinuation = namedtuple(
+    'ProcessContinuation',
+    'should_resume resume_timestamp resume_time_domain future_output_watermark')
+
+
 class DoFn(WithTypeHints, HasDisplayData):
   """A function object used by a transform with custom processing.
 
@@ -130,6 +141,7 @@ class DoFn(WithTypeHints, HasDisplayData):
   SideInputParam = 'SideInputParam'
   TimestampParam = 'TimestampParam'
   WindowParam = 'WindowParam'
+  RestrictionParam = 'RestrictionParam'
 
   @staticmethod
   def from_callable(fn):
@@ -213,6 +225,26 @@ class DoFn(WithTypeHints, HasDisplayData):
         self.process.im_class is types.ClassType:
       return False # Method is a classmethod
     return True
+
+  def initial_restriction(self, element):
+    pass
+
+  def new_tracker(self, restriction):
+    pass
+
+  def restriction_coder(self):
+    pass
+
+  @staticmethod
+  def done():
+    return ProcessContinuation(should_resume=False)
+
+  @staticmethod
+  def resume(self, resume_timestamp=None, future_output_watermark=None):
+    return ProcessContinuation(should_resume=True,
+                               resume_timestamp=resume_timestamp,
+                               resume_time_domain=None,
+                               future_output_watermark=future_output_watermark)
 
 
 def _fn_takes_side_inputs(fn):
