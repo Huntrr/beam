@@ -26,7 +26,12 @@ from __future__ import absolute_import
 import collections
 import logging
 
+from apache_beam.runners.common import DoFnSignature
+
+from apache_beam.transforms.core import ParDo
+
 from apache_beam.metrics.execution import MetricsEnvironment
+from apache_beam.runners.common import PTransformOverride
 from apache_beam.runners.direct.bundle_factory import BundleFactory
 from apache_beam.runners.runner import PipelineResult
 from apache_beam.runners.runner import PipelineRunner
@@ -37,6 +42,20 @@ from apache_beam.options.value_provider import RuntimeValueProvider
 
 
 __all__ = ['DirectRunner']
+
+
+class PardoMultiOverride(PTransformOverride):
+
+  def get_replacement_transform(self, ptransform):
+    # Importing locally to prevent circular dependencies.
+    from apache_beam.runners.sdf_common import SplittableParDo
+    assert isinstance(ptransform, ParDo)
+    do_fn = ptransform.fn
+    signature = DoFnSignature(do_fn)
+    if signature.is_splittable_dofn():
+      return SplittableParDo(ptransform)
+    else:
+      return ptransform
 
 
 class DirectRunner(PipelineRunner):
@@ -56,8 +75,20 @@ class DirectRunner(PipelineRunner):
     except NotImplementedError:
       return transform.expand(pcoll)
 
+  def _default_transform_overrides(self):
+    from apache_beam.runners.sdf_common import SplittableParDoMatcher
+
+    overrides = []
+    overrides.append((SplittableParDoMatcher(), PardoMultiOverride()))
+
+    return overrides
+
+
   def run(self, pipeline):
     """Execute the entire pipeline and returns an DirectPipelineResult."""
+
+    # Overriding transforms at runtime.
+    pipeline.replace_all(self._default_transform_overrides())
 
     # TODO: Move imports to top. Pipeline <-> Runner dependency cause problems
     # with resolving imports when they are at top.
@@ -109,6 +140,9 @@ class DirectRunner(PipelineRunner):
     if not self._cache:
       self._cache = BufferingInMemoryCache()
     return self._cache.pvalue_cache
+
+  # def run_ParDo(self, transform_node):
+  #   raise ValueError('Running ParDo')
 
 
 class BufferingInMemoryCache(object):

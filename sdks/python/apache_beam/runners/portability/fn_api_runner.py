@@ -17,10 +17,10 @@
 
 """A PipelineRunner using the SDK harness.
 """
+import Queue as queue
 import collections
 import json
 import logging
-import Queue as queue
 import threading
 
 import grpc
@@ -30,14 +30,15 @@ import apache_beam as beam
 from apache_beam.coders import WindowedValueCoder
 from apache_beam.coders.coder_impl import create_InputStream
 from apache_beam.coders.coder_impl import create_OutputStream
+from apache_beam.core.runners.api import beam_fn_api_pb2
 from apache_beam.internal import pickler
 from apache_beam.io import iobase
-from apache_beam.transforms.window import GlobalWindows
-from apache_beam.runners.api import beam_fn_api_pb2
 from apache_beam.runners.portability import maptask_executor_runner
 from apache_beam.runners.worker import data_plane
 from apache_beam.runners.worker import operation_specs
 from apache_beam.runners.worker import sdk_worker
+from apache_beam.transforms.window import GlobalWindows
+
 
 # This module is experimental. No backwards-compatibility guarantees.
 

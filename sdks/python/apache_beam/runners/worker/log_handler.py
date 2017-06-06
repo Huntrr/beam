@@ -16,13 +16,15 @@
 #
 """Beam fn API log handler."""
 
+import Queue as queue
 import logging
 import math
-import Queue as queue
 import threading
 
-from apache_beam.runners.api import beam_fn_api_pb2
 import grpc
+
+from apache_beam.core.runners.api import beam_fn_api_pb2
+
 
 # This module is experimental. No backwards-compatibility guarantees.
 

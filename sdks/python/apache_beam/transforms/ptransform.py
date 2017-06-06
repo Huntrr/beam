@@ -48,17 +48,16 @@ from apache_beam import error
 from apache_beam import pvalue
 from apache_beam.internal import pickler
 from apache_beam.internal import util
-from apache_beam.transforms.display import HasDisplayData
 from apache_beam.transforms.display import DisplayDataItem
+from apache_beam.transforms.display import HasDisplayData
 from apache_beam.typehints import typehints
-from apache_beam.typehints.decorators import getcallargs_forhints
 from apache_beam.typehints.decorators import TypeCheckError
 from apache_beam.typehints.decorators import WithTypeHints
+from apache_beam.typehints.decorators import getcallargs_forhints
 from apache_beam.typehints.trivial_inference import instance_to_type
 from apache_beam.typehints.typehints import validate_composite_type_param
 from apache_beam.utils import proto_utils
 from apache_beam.utils import urns
-
 
 __all__ = [
     'PTransform',
@@ -430,7 +429,7 @@ class PTransform(WithTypeHints, HasDisplayData):
     cls._known_urns[urn] = parameter_type, constructor
 
   def to_runner_api(self, context):
-    from apache_beam.runners.api import beam_runner_api_pb2
+    from apache_beam.core.runners.api import beam_runner_api_pb2
     urn, typed_param = self.to_runner_api_parameter(context)
     return beam_runner_api_pb2.FunctionSpec(
         urn=urn,

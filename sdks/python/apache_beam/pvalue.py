@@ -30,7 +30,6 @@ import itertools
 
 from apache_beam import typehints
 
-
 __all__ = [
     'PCollection',
     'TaggedOutput',
@@ -128,7 +127,7 @@ class PCollection(PValue):
     return _InvalidUnpickledPCollection, ()
 
   def to_runner_api(self, context):
-    from apache_beam.runners.api import beam_runner_api_pb2
+    from apache_beam.core.runners.api import beam_runner_api_pb2
     from apache_beam.internal import pickler
     return beam_runner_api_pb2.PCollection(
         unique_name='%d%s.%s' % (

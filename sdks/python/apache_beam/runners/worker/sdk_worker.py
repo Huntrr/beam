@@ -21,10 +21,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import Queue as queue
 import collections
 import json
 import logging
-import Queue as queue
 import threading
 import traceback
 import zlib
@@ -32,14 +32,14 @@ import zlib
 import dill
 from google.protobuf import wrappers_pb2
 
-from apache_beam.coders import coder_impl
 from apache_beam.coders import WindowedValueCoder
+from apache_beam.coders import coder_impl
+from apache_beam.core.runners.api import beam_fn_api_pb2
 from apache_beam.internal import pickler
 from apache_beam.runners.dataflow.native_io import iobase
-from apache_beam.utils import counters
-from apache_beam.runners.api import beam_fn_api_pb2
 from apache_beam.runners.worker import operation_specs
 from apache_beam.runners.worker import operations
+from apache_beam.utils import counters
 
 # This module is experimental. No backwards-compatibility guarantees.
 

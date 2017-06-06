@@ -21,15 +21,17 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import Queue as queue
 import abc
 import collections
 import logging
-import Queue as queue
 import threading
 
-from apache_beam.coders import coder_impl
-from apache_beam.runners.api import beam_fn_api_pb2
 import grpc
+
+from apache_beam.coders import coder_impl
+from apache_beam.core.runners.api import beam_fn_api_pb2
+
 
 # This module is experimental. No backwards-compatibility guarantees.
 

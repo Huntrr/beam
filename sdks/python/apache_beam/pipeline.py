@@ -53,20 +53,20 @@ import tempfile
 
 from apache_beam import pvalue
 from apache_beam.internal import pickler
-from apache_beam.runners import create_runner
-from apache_beam.runners import PipelineRunner
-from apache_beam.transforms import ptransform
-from apache_beam.typehints import typehints
-from apache_beam.typehints import TypeCheckError
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.options.pipeline_options import TypeOptions
-from apache_beam.options.pipeline_options_validator import PipelineOptionsValidator
+from apache_beam.options.pipeline_options_validator import \
+  PipelineOptionsValidator
+from apache_beam.runners import PipelineRunner
+from apache_beam.runners import create_runner
+from apache_beam.transforms import ptransform
+from apache_beam.typehints import TypeCheckError
+from apache_beam.typehints import typehints
 from apache_beam.utils.annotations import deprecated
 
-
-__all__ = ['Pipeline']
+__all__ = ['Pipeline', 'PTransformMatcher', 'PTransformOverride']
 
 
 class Pipeline(object):
@@ -156,6 +156,73 @@ class Pipeline(object):
   def _root_transform(self):
     """Returns the root transform of the transform stack."""
     return self.transforms_stack[0]
+
+  def _replace(self, matcher, override):
+
+    output_map = {}
+
+    # Recording updated outputs.
+    class OutputVisitor(PipelineVisitor):
+
+      def __init__(self, pipeline):
+        self.pipeline = pipeline
+
+      def visit_transform(self, transform_node):
+        if matcher.match(transform_node):
+          replacement_transform = override.get_replacement_transform(
+              transform_node.transform)
+          inputs = transform_node.inputs
+          # We only support replacing single-input PTransforms.
+          assert len(inputs) == 1
+          transform_node.transform = replacement_transform
+          self.pipeline.transforms_stack.append(transform_node)
+          new_output = replacement_transform.expand(inputs[0])
+          output_map[transform_node.outputs[None]] = new_output
+          self.pipeline.transforms_stack.pop()
+
+    self.visit(OutputVisitor(self))
+
+    # Adjusting inputs and outputs
+    class OutputUpdater(PipelineVisitor):
+
+      def __init__(self, pipeline):
+        self.pipeline = pipeline
+
+      def visit_transform(self, transform_node):
+        if transform_node.outputs[None] in output_map:
+          transform_node.replace_output(
+              output_map[transform_node.outputs[None]])
+
+        replace_input = False
+        for input in transform_node.inputs:
+          if input in output_map:
+            replace_input = True
+            break
+
+        if replace_input:
+          transform_node.inputs = [
+            input if not input in output_map else output_map[input]
+            for input in transform_node.inputs]
+
+    self.visit(OutputUpdater(self))
+
+  def _check_replacement(self, matcher, override):
+
+    class Visitor(PipelineVisitor):
+      def visit_transform(self, transform_node):
+        if matcher.match(transform_node):
+          raise RuntimeError('Transform node %r was not replaced as expected.',
+                             transform_node)
+
+    self.visit(Visitor())
+
+  def replace_all(self, replacements):
+    for matcher, override in replacements:
+      self._replace(matcher, override)
+
+    # Checking if the transforms have been successfully replaced.
+    for matcher, override in replacements:
+      self._check_replacement(matcher, override)
 
   def run(self, test_runner_api=True):
     """Runs the pipeline. Returns whatever our runner returns after running."""
@@ -339,7 +406,7 @@ class Pipeline(object):
   def to_runner_api(self):
     """For internal use only; no backwards-compatibility guarantees."""
     from apache_beam.runners import pipeline_context
-    from apache_beam.runners.api import beam_runner_api_pb2
+    from apache_beam.core.runners.api import beam_runner_api_pb2
     context = pipeline_context.PipelineContext()
     # Mutates context; placing inline would force dependence on
     # argument evaluation order.
@@ -384,7 +451,7 @@ class PipelineVisitor(object):
     pass
 
   def visit_transform(self, transform_node):
-    """Callback for visiting a transform node in the pipeline DAG."""
+    """Callback for visiting a primitive transform node in the pipeline DAG."""
     pass
 
   def enter_composite_transform(self, transform_node):
@@ -440,6 +507,14 @@ class AppliedPTransform(object):
           real_producer(main_input).refcounts[main_input.tag] += 1
       for side_input in self.side_inputs:
         real_producer(side_input.pvalue).refcounts[side_input.pvalue.tag] += 1
+
+  def replace_output(self, output, tag=None):
+    if isinstance(output, pvalue.DoOutputsTuple):
+      self.replace_output(output[output._main_tag])
+    elif isinstance(output, pvalue.PValue):
+      self.outputs[tag] = output
+    else:
+      raise TypeError("Unexpected output type: %s" % output)
 
   def add_output(self, output, tag=None):
     if isinstance(output, pvalue.DoOutputsTuple):
@@ -525,7 +600,7 @@ class AppliedPTransform(object):
             if isinstance(output, pvalue.PCollection)}
 
   def to_runner_api(self, context):
-    from apache_beam.runners.api import beam_runner_api_pb2
+    from apache_beam.core.runners.api import beam_runner_api_pb2
 
     def transform_to_runner_api(transform, context):
       if transform is None:
@@ -564,3 +639,4 @@ class AppliedPTransform(object):
           pc.tag = tag
     result.update_input_refcounts()
     return result
+
