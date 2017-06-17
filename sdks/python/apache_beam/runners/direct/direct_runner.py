@@ -27,6 +27,7 @@ import collections
 import logging
 
 from apache_beam import typehints
+
 from apache_beam.metrics.execution import MetricsEnvironment
 from apache_beam.runners.direct.bundle_factory import BundleFactory
 from apache_beam.runners.runner import PipelineResult
@@ -52,6 +53,19 @@ V = typehints.TypeVariable('V')
 class _StreamingGroupAlsoByWindow(_GroupAlsoByWindow):
   """Streaming GroupAlsoByWindow placeholder for overriding in DirectRunner."""
   pass
+
+
+def _get_transform_overrides():
+  # A list of PTransformOverride objects to be applied before running a pipeline
+  # using DirectRunner.
+  # Currently this only works for overrides where the input and output types do
+  # not change.
+
+  from apache_beam.runners.sdf_common import SplittableParDoOverride
+  from apache_beam.runners.sdf_common import ProcessKeyedElementsViaKeyedWorkItemsOverride
+
+  # return [SplittableParDoOverride(), ProcessKeyedElementsViaKeyedWorkItemsOverride()]
+  return [SplittableParDoOverride()]
 
 
 class DirectRunner(PipelineRunner):
@@ -96,7 +110,7 @@ class DirectRunner(PipelineRunner):
     """Execute the entire pipeline and returns an DirectPipelineResult."""
 
     # Performing configured PTransform overrides.
-    pipeline.replace_all(DirectRunner._PTRANSFORM_OVERRIDES)
+    pipeline.replace_all(_get_transform_overrides())
 
     # TODO: Move imports to top. Pipeline <-> Runner dependency cause problems
     # with resolving imports when they are at top.

@@ -985,3 +985,21 @@ class _RoundRobinKeyFn(core.DoFn):
     if self.counter >= self.count:
       self.counter -= self.count
     yield self.counter, element
+
+
+class RestrictionTracker(object):
+
+  def current_restriction(self):
+    raise NotImplementedError
+
+  def checkpoint(self):
+    raise NotImplementedError
+
+  def check_done(self):
+    raise NotImplementedError
+
+  def try_claim(self, element):
+    raise NotImplementedError
+
+  def fraction_claimed(self):
+    raise NotImplementedError

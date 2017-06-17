@@ -55,20 +55,20 @@ import tempfile
 from apache_beam import pvalue
 from apache_beam.internal import pickler
 from apache_beam.pvalue import PCollection
-from apache_beam.runners import create_runner
-from apache_beam.runners import PipelineRunner
-from apache_beam.transforms import ptransform
-from apache_beam.typehints import typehints
-from apache_beam.typehints import TypeCheckError
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.options.pipeline_options import TypeOptions
-from apache_beam.options.pipeline_options_validator import PipelineOptionsValidator
+from apache_beam.options.pipeline_options_validator import \
+  PipelineOptionsValidator
+from apache_beam.runners import PipelineRunner
+from apache_beam.runners import create_runner
+from apache_beam.transforms import ptransform
+from apache_beam.typehints import TypeCheckError
+from apache_beam.typehints import typehints
 from apache_beam.utils.annotations import deprecated
 
-
-__all__ = ['Pipeline']
+__all__ = ['Pipeline', 'PTransformMatcher', 'PTransformOverride']
 
 
 class Pipeline(object):
@@ -537,7 +537,7 @@ class PipelineVisitor(object):
     pass
 
   def visit_transform(self, transform_node):
-    """Callback for visiting a transform node in the pipeline DAG."""
+    """Callback for visiting a primitive transform node in the pipeline DAG."""
     pass
 
   def enter_composite_transform(self, transform_node):
@@ -642,6 +642,8 @@ class AppliedPTransform(object):
         assert pval.producer is not None
         pval.producer.visit(visitor, pipeline, visited)
         # The value should be visited now since we visit outputs too.
+        if not pval in visited:
+          about_to_fail = True
         assert pval in visited, pval
 
     # Visit side inputs.

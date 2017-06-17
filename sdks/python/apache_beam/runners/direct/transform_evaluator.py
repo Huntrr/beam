@@ -20,6 +20,7 @@
 from __future__ import absolute_import
 
 import collections
+import copy
 
 from apache_beam import coders
 from apache_beam import pvalue
@@ -27,6 +28,8 @@ from apache_beam.internal import pickler
 import apache_beam.io as io
 from apache_beam.runners.common import DoFnRunner
 from apache_beam.runners.common import DoFnState
+from apache_beam.runners.sdf_common import OutputAndTimeBoundSplittableProcessElementInvoker
+from apache_beam.runners.sdf_common import ProcessKeyedElements
 from apache_beam.runners.direct.watermark_manager import WatermarkManager
 from apache_beam.runners.direct.transform_result import TransformResult
 from apache_beam.runners.dataflow.native_io.iobase import _NativeWrite  # pylint: disable=protected-access
@@ -57,6 +60,7 @@ class TransformEvaluatorRegistry(object):
         core.ParDo: _ParDoEvaluator,
         core._GroupByKeyOnly: _GroupByKeyOnlyEvaluator,
         _NativeWrite: _NativeWriteEvaluator,
+        ProcessKeyedElements: _ProcessElemenetsEvaluator
     }
 
   def for_application(
@@ -296,7 +300,8 @@ class _ParDoEvaluator(_TransformEvaluator):
     self._counter_factory = counters.CounterFactory()
 
     # TODO(aaltay): Consider storing the serialized form as an optimization.
-    dofn = pickler.loads(pickler.dumps(transform.dofn))
+    # dofn = pickler.loads(pickler.dumps(transform.dofn))
+    dofn = transform.dofn
 
     pipeline_options = self._evaluation_context.pipeline_options
     if (pipeline_options is not None
@@ -304,8 +309,11 @@ class _ParDoEvaluator(_TransformEvaluator):
       dofn = TypeCheckWrapperDoFn(dofn, transform.get_type_hints())
 
     dofn = OutputCheckWrapperDoFn(dofn, self._applied_ptransform.full_label)
+    args = transform.args if hasattr(transform, 'args') else []
+    kwargs = transform.kwargs if hasattr(transform, 'kwargs') else {}
+
     self.runner = DoFnRunner(
-        dofn, transform.args, transform.kwargs,
+        dofn, args, kwargs,
         self._side_inputs,
         self._applied_ptransform.inputs[0].windowing,
         tagged_receivers=self._tagged_receivers,
@@ -468,3 +476,48 @@ class _NativeWriteEvaluator(_TransformEvaluator):
 
     return TransformResult(
         self._applied_ptransform, [], None, None, hold)
+
+
+class _ProcessElemenetsEvaluator(_TransformEvaluator):
+
+  def __init__(self, evaluation_context, applied_ptransform,
+               input_committed_bundle, side_inputs, scoped_metrics_container):
+
+    transform = applied_ptransform.transform
+    assert isinstance(transform, ProcessKeyedElements)
+
+    # Replacing the do_fn of the transform with a wrapper do_fn that performs
+    # SDF magic.
+    user_do_fn = transform.dofn
+    self.process_fn = transform.new_process_fn(user_do_fn)
+    transform.dofn = self.process_fn
+
+    # TODO: process_fn.set_timer_internals_factory()
+    # TODO: process_fn.set_state_internals_factory()
+
+
+    # transform_copy = copy.deepcopy(applied_ptransform)
+    applied_ptransform.transform.dofn = user_do_fn
+    self._par_do_evaluator = _ParDoEvaluator(
+        evaluation_context, applied_ptransform, input_committed_bundle,
+        side_inputs, scoped_metrics_container)
+
+    # TODO: do something better instead of temporarily replacing the dofn
+    applied_ptransform.transform.dofn = user_do_fn
+
+    self.process_fn.set_process_element_invoker(
+        self._par_do_evaluator.runner.do_fn_invoker)
+
+
+    # TODO: complete
+
+  """TransformEvaluator for sdf.ProcessElemenets transform."""
+  def start_bundle(self):
+    self._par_do_evaluator.start_bundle()
+
+
+  def process_element(self, element):
+    self._par_do_evaluator.process_element(element)
+
+  def finish_bundle(self):
+    return self._par_do_evaluator.finish_bundle()

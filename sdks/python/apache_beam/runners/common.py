@@ -25,10 +25,13 @@ For internal use only; no backwards-compatibility guarantees.
 import sys
 import traceback
 
+import logging
+
 from apache_beam.internal import util
+from apache_beam.io.iobase import RestrictionTracker
 from apache_beam.metrics.execution import ScopedMetricsContainer
 from apache_beam.pvalue import TaggedOutput
-from apache_beam.transforms import core
+from apache_beam.transforms import core, DoFn
 from apache_beam.transforms.window import TimestampedValue
 from apache_beam.transforms.window import WindowFn
 from apache_beam.transforms.window import GlobalWindow
@@ -101,6 +104,11 @@ class DoFnSignature(object):
     self.process_method = DoFnMethodWrapper(do_fn, 'process')
     self.start_bundle_method = DoFnMethodWrapper(do_fn, 'start_bundle')
     self.finish_bundle_method = DoFnMethodWrapper(do_fn, 'finish_bundle')
+    self.initial_restriction_method = DoFnMethodWrapper(do_fn, 'initial_restriction')
+    self.restriction_coder_method = DoFnMethodWrapper(do_fn, 'restriction_coder')
+
+    # TODO(chamikara): add support fo SDF methods.
+
     self._validate()
 
   def _validate(self):
@@ -120,6 +128,9 @@ class DoFnSignature(object):
     for param in core.DoFn.DoFnParams:
       assert param not in method_wrapper.defaults
 
+  def is_splittable_dofn(self):
+    return core.DoFn.RestrictionTrackerParam in self.process_method.defaults
+
 
 class DoFnInvoker(object):
   """An abstraction that can be used to execute DoFn methods.
@@ -133,21 +144,31 @@ class DoFnInvoker(object):
 
   @staticmethod
   def create_invoker(
-      output_processor,
-      signature, context, side_inputs, input_args, input_kwargs):
+      signature,
+      output_processor=None,
+      context=None, side_inputs=None, input_args=None, input_kwargs=None,
+      process_invocation=True):
     """ Creates a new DoFnInvoker based on given arguments.
 
     Args:
+        output_processor: an OutputProcessor for receiving elements produced by
+                          invoking functions of the DoFn.
         signature: a DoFnSignature for the DoFn being invoked.
         context: Context to be used when invoking the DoFn (deprecated).
         side_inputs: side inputs to be used when invoking th process method.
         input_args: arguments to be used when invoking the process method
         input_kwargs: kwargs to be used when invoking the process method.
     """
+
+    assert isinstance(signature, DoFnSignature)
+
     default_arg_values = signature.process_method.defaults
-    use_simple_invoker = (
+    # TODO: uncomment/fix below line
+    use_simple_invoker = not process_invocation or (
         not side_inputs and not input_args and not input_kwargs and
         not default_arg_values)
+    # use_simple_invoker = not process_invocation or (
+    #     not side_inputs and not input_args and not input_kwargs)
     if use_simple_invoker:
       return SimpleInvoker(output_processor, signature)
     else:
@@ -176,6 +197,21 @@ class DoFnInvoker(object):
     """
     self.output_processor.finish_bundle_outputs(
         self.signature.finish_bundle_method.method_value())
+
+  def invoke_initial_restriction(self, element):
+    return self.signature.initial_restriction_method.method_value(element)
+
+  def invoke_restriction_coder(self):
+    return self.signature.restriction_coder_method.method_value()
+
+
+def _find_param_with_default(method, default):
+  defaults = method.defaults
+  for i, value in enumerate(defaults):
+    if defaults[i] == default:
+      return method.args[-1 * (i + 1)]
+
+  return None
 
 
 class SimpleInvoker(DoFnInvoker):
@@ -268,19 +304,43 @@ class PerWindowInvoker(DoFnInvoker):
     self.args_for_process = args_with_placeholders
     self.kwargs_for_process = input_kwargs
 
-  def invoke_process(self, windowed_value):
+  def invoke_process(self, windowed_value, restriction_tracker=None, watermark_reporter=None):
     self.context.set_element(windowed_value)
     # Call for the process function for each window if has windowed side inputs
     # or if the process accesses the window parameter. We can just call it once
     # otherwise as none of the arguments are changing
+
+    additional_kwargs = {}
+    if restriction_tracker:
+      restriction_tracker_param = 'restriction_tracker'
+      # restriction_tracker_param = _find_param_with_default(
+      #     self.process_method, core.DoFn.RestrictionTrackerParam)
+      if not restriction_tracker_param:
+        raise ValueError(
+            'Received a RangeTracker %r but DoFn does not have a '
+            'RangeTrackerParam defined', restriction_tracker)
+      additional_kwargs[restriction_tracker_param] = restriction_tracker
+      if watermark_reporter:
+        watermark_reporter_param = _find_param_with_default(
+            self.process_method, DoFn.WatermarkReporterParam)
+        if watermark_reporter_param:
+          additional_kwargs[watermark_reporter_param] = watermark_reporter
+        else:
+          raise ValueError('A watermark reporter %r was provided but DoFn does '
+                           'not have a WatermarkReporterParam defined.',
+                           watermark_reporter_param)
+
+      logging.error('****** dofn.process additional kwargs: %r', additional_kwargs)
+
     if self.has_windowed_inputs and len(windowed_value.windows) != 1:
       for w in windowed_value.windows:
         self._invoke_per_window(
-            WindowedValue(windowed_value.value, windowed_value.timestamp, (w,)))
+            WindowedValue(windowed_value.value, windowed_value.timestamp, (w,)),
+            additional_kwargs)
     else:
-      self._invoke_per_window(windowed_value)
+      self._invoke_per_window(windowed_value, additional_kwargs)
 
-  def _invoke_per_window(self, windowed_value):
+  def _invoke_per_window(self, windowed_value, additional_kwargs):
     if self.has_windowed_inputs:
       window, = windowed_value.windows
       args_for_process, kwargs_for_process = util.insert_values_in_args(
@@ -297,6 +357,13 @@ class PerWindowInvoker(DoFnInvoker):
         args_for_process[i] = window
       elif p == core.DoFn.TimestampParam:
         args_for_process[i] = windowed_value.timestamp
+
+    if additional_kwargs:
+      if kwargs_for_process is None:
+        kwargs_for_process = additional_kwargs
+      else:
+        for key in additional_kwargs:
+          kwargs_for_process[key] = additional_kwargs[key]
 
     if kwargs_for_process:
       self.output_processor.process_outputs(
@@ -376,7 +443,7 @@ class DoFnRunner(Receiver):
         windowing.windowfn, main_receivers, tagged_receivers)
 
     self.do_fn_invoker = DoFnInvoker.create_invoker(
-        output_processor, do_fn_signature, context, side_inputs, args, kwargs)
+        do_fn_signature, output_processor, context, side_inputs, args, kwargs)
 
   def receive(self, windowed_value):
     self.process(windowed_value)
@@ -385,7 +452,24 @@ class DoFnRunner(Receiver):
     try:
       self.logging_context.enter()
       self.scoped_metrics_container.enter()
-      self.do_fn_invoker.invoke_process(windowed_value)
+      restriction_tracker = None
+
+      if (isinstance(windowed_value.value, tuple) and
+          len(windowed_value.value) > 1):
+        if isinstance(windowed_value.value[1], RestrictionTracker):
+          previous_value = windowed_value.value
+          windowed_value.value = previous_value[0]
+          restriction_tracker = previous_value[1]
+
+          # TODO assert that there is an watermark_callback and set it.
+
+      if restriction_tracker:
+        assert (isinstance(self.do_fn_invoker, SimpleInvoker),
+                'SplittableDoFn invocation must be done using SimpleInvoker')
+        self.do_fn_invoker.invoke_process(
+            windowed_value, restriction_tracker=restriction_tracker)
+      else:
+        self.do_fn_invoker.invoke_process(windowed_value)
     except BaseException as exn:
       self._reraise_augmented(exn)
     finally:

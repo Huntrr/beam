@@ -33,25 +33,23 @@ from apache_beam.transforms.display import DisplayDataItem
 from apache_beam.transforms.display import HasDisplayData
 from apache_beam.transforms.ptransform import PTransform
 from apache_beam.transforms.ptransform import PTransformWithSideInputs
+from apache_beam.transforms.window import GlobalWindows
 from apache_beam.transforms.window import MIN_TIMESTAMP
 from apache_beam.transforms.window import TimestampCombiner
-from apache_beam.transforms.window import WindowedValue
 from apache_beam.transforms.window import TimestampedValue
-from apache_beam.transforms.window import GlobalWindows
 from apache_beam.transforms.window import WindowFn
+from apache_beam.transforms.window import WindowedValue
 from apache_beam.typehints import Any
 from apache_beam.typehints import Iterable
 from apache_beam.typehints import KV
-from apache_beam.typehints import trivial_inference
 from apache_beam.typehints import Union
-from apache_beam.typehints.decorators import get_type_hints
+from apache_beam.typehints import trivial_inference
 from apache_beam.typehints.decorators import TypeCheckError
 from apache_beam.typehints.decorators import WithTypeHints
+from apache_beam.typehints.decorators import get_type_hints
 from apache_beam.typehints.trivial_inference import element_type
 from apache_beam.typehints.typehints import is_consistent_with
 from apache_beam.utils import urns
-from apache_beam.options.pipeline_options import TypeOptions
-
 
 __all__ = [
     'DoFn',
@@ -151,6 +149,8 @@ class DoFn(WithTypeHints, HasDisplayData):
   SideInputParam = 'SideInputParam'
   TimestampParam = 'TimestampParam'
   WindowParam = 'WindowParam'
+  RestrictionTrackerParam = 'RestrictionTrackerParam'
+  WatermarkReporterParam = 'WatermarkReporterParam'
 
   DoFnParams = [ElementParam, SideInputParam, TimestampParam, WindowParam]
 
@@ -184,6 +184,18 @@ class DoFn(WithTypeHints, HasDisplayData):
   def finish_bundle(self):
     """Called after a bundle of elements is processed on a worker.
     """
+    pass
+
+  def new_tracker(self):
+    pass
+
+  def restriction_coder(self):
+    pass
+
+  def initial_restriction(self):
+    pass
+
+  def split_restriction(self, element, restriction, num_parts):
     pass
 
   def get_function_arguments(self, func):
