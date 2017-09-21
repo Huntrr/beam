@@ -220,7 +220,7 @@ class ProcessFn(beam.DoFn):
       key, value = element
 
     state = self._step_context.get_keyed_state(key)
-    assert isinstance(state, DirectUnmergedState) # TODO: delete
+    # assert isinstance(state, DirectUnmergedState) # TODO: delete
 
     element_state = state.get_state(window, self._element_tag)
     is_seed_call = not element_state # Initially element_state is an empty list.

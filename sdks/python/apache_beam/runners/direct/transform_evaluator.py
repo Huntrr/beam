@@ -842,8 +842,8 @@ class _NativeWriteEvaluator(_TransformEvaluator):
 class _ProcessElemenetsEvaluator(_TransformEvaluator):
 
   # TODO update max_num_outputs to 100 and max_duration to 1 sec
-  DEFAULT_MAX_NUM_OUTPUTS = 100
-  DEFAULT_MAX_DURATION = 1
+  DEFAULT_MAX_NUM_OUTPUTS = 3
+  DEFAULT_MAX_DURATION = 10000
 
   def __init__(self, evaluation_context, applied_ptransform,
                input_committed_bundle, side_inputs, scoped_metrics_container):
@@ -866,7 +866,7 @@ class _ProcessElemenetsEvaluator(_TransformEvaluator):
     self.step_context = self._execution_context.get_step_context()
     self.global_state = self.step_context.get_keyed_state(None)
 
-    assert isinstance(self.global_state, DirectUnmergedState)
+    # assert isinstance(self.global_state, DirectUnmergedState)
 
     self._process_fn.set_step_context(self.step_context)
 
