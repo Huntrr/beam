@@ -86,19 +86,30 @@ class _StreamingGroupAlsoByWindow(_GroupAlsoByWindow):
         context.windowing_strategies.get_by_id(payload.value))
 
 
-class DirectRunner(PipelineRunner):
-  """Executes a single pipeline on the local machine."""
-
+def _get_transform_overrides():
   # A list of PTransformOverride objects to be applied before running a pipeline
   # using DirectRunner.
   # Currently this only works for overrides where the input and output types do
   # not change.
-  # For internal SDK use only. This should not be updated by Beam pipeline
-  # authors.
-  _PTRANSFORM_OVERRIDES = []
+  # For internal SDK use only.
+
+  from apache_beam.runners.sdf_common import SplittableParDoOverride
+  from apache_beam.runners.sdf_common import ProcessKeyedElementsViaKeyedWorkItemsOverride
+  from apache_beam.runners.direct.sdf_direct_runner import \
+    DirectGBKIntoKeyedWorkItemsOverride
+  return [SplittableParDoOverride(),
+          ProcessKeyedElementsViaKeyedWorkItemsOverride(),
+          DirectGBKIntoKeyedWorkItemsOverride()]
+
+
+class DirectRunner(PipelineRunner):
+  """Executes a single pipeline on the local machine."""
+
+
 
   def __init__(self):
     self._cache = None
+    self._ptransform_overrides = _get_transform_overrides()
 
   def apply_CombinePerKey(self, transform, pcoll):
     # TODO: Move imports to top. Pipeline <-> Runner dependency cause problems
@@ -187,7 +198,7 @@ class DirectRunner(PipelineRunner):
     """Execute the entire pipeline and returns an DirectPipelineResult."""
 
     # Performing configured PTransform overrides.
-    pipeline.replace_all(DirectRunner._PTRANSFORM_OVERRIDES)
+    pipeline.replace_all(self._ptransform_overrides)
 
     # TODO: Move imports to top. Pipeline <-> Runner dependency cause problems
     # with resolving imports when they are at top.

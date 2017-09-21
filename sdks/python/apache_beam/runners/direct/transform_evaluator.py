@@ -23,9 +23,13 @@ import collections
 import random
 import time
 
-import apache_beam.io as io
+import logging
+
+from apache_beam.runners.direct.evaluation_context import DirectUnmergedState
+
 from apache_beam import coders
 from apache_beam import pvalue
+import apache_beam.io as io
 from apache_beam.internal import pickler
 from apache_beam.options.pipeline_options import TypeOptions
 from apache_beam.runners.common import DoFnRunner
@@ -33,6 +37,9 @@ from apache_beam.runners.common import DoFnState
 from apache_beam.runners.dataflow.native_io.iobase import _NativeWrite  # pylint: disable=protected-access
 from apache_beam.runners.direct.direct_runner import _StreamingGroupAlsoByWindow
 from apache_beam.runners.direct.direct_runner import _StreamingGroupByKeyOnly
+from apache_beam.runners.sdf_common import ProcessElements, ProcessFn, \
+  OutputAndTimeBoundSplittableProcessElementInvoker
+from apache_beam.runners.direct.watermark_manager import WatermarkManager
 from apache_beam.runners.direct.util import KeyedWorkItem
 from apache_beam.runners.direct.util import TransformResult
 from apache_beam.runners.direct.watermark_manager import WatermarkManager
@@ -42,6 +49,9 @@ from apache_beam.testing.test_stream import TestStream
 from apache_beam.testing.test_stream import WatermarkEvent
 from apache_beam.transforms import core
 from apache_beam.transforms.trigger import TimeDomain
+from apache_beam.transforms.window import GlobalWindows
+from apache_beam.transforms.window import WindowedValue
+from apache_beam.transforms.trigger import create_trigger_driver, SimpleState
 from apache_beam.transforms.trigger import _CombiningValueStateTag
 from apache_beam.transforms.trigger import _ListStateTag
 from apache_beam.transforms.trigger import create_trigger_driver
@@ -74,6 +84,7 @@ class TransformEvaluatorRegistry(object):
         _StreamingGroupAlsoByWindow: _StreamingGroupAlsoByWindowEvaluator,
         _NativeWrite: _NativeWriteEvaluator,
         TestStream: _TestStreamEvaluator,
+        ProcessElements: _ProcessElemenetsEvaluator
     }
     self._root_bundle_providers = {
         core.PTransform: DefaultRootBundleProvider,
@@ -191,8 +202,6 @@ class _TransformEvaluator(object):
     self._execution_context = evaluation_context.get_execution_context(
         applied_ptransform)
     self.scoped_metrics_container = scoped_metrics_container
-    with scoped_metrics_container:
-      self.start_bundle()
 
   def _expand_outputs(self):
     outputs = set()
@@ -529,7 +538,8 @@ class _ParDoEvaluator(_TransformEvaluator):
     self._counter_factory = counters.CounterFactory()
 
     # TODO(aaltay): Consider storing the serialized form as an optimization.
-    dofn = pickler.loads(pickler.dumps(transform.dofn))
+    # dofn = pickler.loads(pickler.dumps(transform.dofn))
+    dofn = transform.dofn
 
     pipeline_options = self._evaluation_context.pipeline_options
     if (pipeline_options is not None
@@ -537,8 +547,11 @@ class _ParDoEvaluator(_TransformEvaluator):
       dofn = TypeCheckWrapperDoFn(dofn, transform.get_type_hints())
 
     dofn = OutputCheckWrapperDoFn(dofn, self._applied_ptransform.full_label)
+    args = transform.args if hasattr(transform, 'args') else []
+    kwargs = transform.kwargs if hasattr(transform, 'kwargs') else {}
+
     self.runner = DoFnRunner(
-        dofn, transform.args, transform.kwargs,
+        dofn, args, kwargs,
         self._side_inputs,
         self._applied_ptransform.inputs[0].windowing,
         tagged_receivers=self._tagged_receivers,
@@ -822,4 +835,100 @@ class _NativeWriteEvaluator(_TransformEvaluator):
       self.global_state.set_timer(
           None, '', TimeDomain.WATERMARK, WatermarkManager.WATERMARK_POS_INF)
 
-    return TransformResult(self, [], [], None, {None: hold})
+      return TransformResult(self, [], [], None, {None: hold})
+
+
+# An evaluator for sdf_common.ProcessElements
+class _ProcessElemenetsEvaluator(_TransformEvaluator):
+
+  # TODO update max_num_outputs to 100 and max_duration to 1 sec
+  DEFAULT_MAX_NUM_OUTPUTS = 100
+  DEFAULT_MAX_DURATION = 1
+
+  def __init__(self, evaluation_context, applied_ptransform,
+               input_committed_bundle, side_inputs, scoped_metrics_container):
+    super(_ProcessElemenetsEvaluator, self).__init__(
+        evaluation_context, applied_ptransform, input_committed_bundle,
+        side_inputs, scoped_metrics_container)
+
+    process_elements_transform = applied_ptransform.transform
+    assert isinstance(process_elements_transform, ProcessElements)
+
+    # Replacing the do_fn of the transform with a wrapper do_fn that performs
+    # SDF magic.
+    transform = applied_ptransform.transform
+    sdf = transform.sdf
+    self._process_fn = transform.new_process_fn(sdf)
+    transform.dofn = self._process_fn
+
+    assert isinstance(self._process_fn, ProcessFn)
+
+    self.step_context = self._execution_context.get_step_context()
+    self.global_state = self.step_context.get_keyed_state(None)
+
+    assert isinstance(self.global_state, DirectUnmergedState)
+
+    self._process_fn.set_step_context(self.step_context)
+
+    process_element_invoker = (
+        OutputAndTimeBoundSplittableProcessElementInvoker(
+            max_num_outputs=self.DEFAULT_MAX_NUM_OUTPUTS,
+            max_duration=self.DEFAULT_MAX_DURATION))
+    self._process_fn.set_process_element_invoker(process_element_invoker)
+
+    self._par_do_evaluator = _ParDoEvaluator(
+        evaluation_context, applied_ptransform, input_committed_bundle,
+        side_inputs, scoped_metrics_container)
+    self.keyed_holds = {}
+
+  def start_bundle(self):
+    self._par_do_evaluator.start_bundle()
+
+  def process_element(self, element):
+    # if isinstance(element.value, KeyedWorkItem):
+    #   # Currently Python SDK's DirectRunner produces KeyedWorkItems after timer firings. We update that to a key, value pair so that ProcessFn doesn't have to special case this. Value get's ignored by ProcessFn for non-seed elements
+    #   element = (element.value.encoded_key, element)
+
+    # self._encoded_key = None # TODO
+    # if isinstance(element, WindowedValue):
+    #   self._encoded_key = element.value[0]
+    # delete_this = True
+
+    assert isinstance(element, WindowedValue)
+    assert len(element.windows) == 1
+    window = element.windows[0]
+    if isinstance(element.value, KeyedWorkItem):
+      encoded_k = element.value.encoded_key
+    else:
+      assert isinstance(element.value, tuple)
+      encoded_k = element.value[0]
+
+    self._par_do_evaluator.process_element(element)
+
+    state = self.step_context.get_keyed_state(encoded_k)
+    self.keyed_holds[encoded_k] = state.get_state(window, self._process_fn.watermark_hold_tag)
+
+    delete_this = True
+
+
+  def finish_bundle(self):
+    transform_result = self._par_do_evaluator.finish_bundle()
+
+    # if self._process_fn.set_timer:
+    #   unprocessed_bundle = self._evaluation_context.create_bundle(
+    #       pvalue.PBegin(self._applied_ptransform.transform.pipeline))
+    #   unprocessed_bundle.add(self._process_fn.element_to_store)
+    #   transform_result.unprocessed_bundles.append(unprocessed_bundle)
+
+    transform_result.keyed_watermark_holds = self.keyed_holds
+    # state = self.step_context.get_keyed_state(self._encoded_key)
+    #
+    # hold_state = state.get_state(None, self._process_fn.watermark_hold_tag)
+    # assert not hold_state
+    #
+    # transform_result.keyed_watermark_holds[self._current_key] = hold_state
+    # logging.info('*********** setting watermark hold for key %r to value %r', self._process_fn.watermark_hold[0], self._process_fn.watermark_hold[1])
+    # # return TransformResult(
+    # #     self._applied_ptransform, self.bundles, unprocessed_bundles, None,
+    # #     {None: hold})
+    return transform_result

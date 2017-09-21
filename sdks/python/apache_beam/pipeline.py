@@ -55,12 +55,15 @@ import tempfile
 
 from apache_beam import pvalue
 from apache_beam.internal import pickler
+from apache_beam.pvalue import PCollection
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.options.pipeline_options import TypeOptions
 from apache_beam.options.pipeline_options_validator import PipelineOptionsValidator
 from apache_beam.pvalue import PCollection
+from apache_beam.options.pipeline_options_validator import \
+  PipelineOptionsValidator
 from apache_beam.runners import PipelineRunner
 from apache_beam.runners import create_runner
 from apache_beam.transforms import ptransform
@@ -69,7 +72,10 @@ from apache_beam.typehints import typehints
 from apache_beam.utils import urns
 from apache_beam.utils.annotations import deprecated
 
-__all__ = ['Pipeline']
+from apache_beam.utils.annotations import deprecated
+from apache_beam.utils import urns
+
+__all__ = ['Pipeline', 'PTransformMatcher', 'PTransformOverride']
 
 
 class Pipeline(object):
@@ -212,6 +218,8 @@ class Pipeline(object):
           self.pipeline._remove_labels_recursively(transform_node)
 
           new_output = replacement_transform.expand(inputs[0])
+          if not hasattr(new_output, 'producer'):
+            about_to_fail = True
           if new_output.producer is None:
             # When current transform is a primitive, we set the producer here.
             new_output.producer = transform_node
