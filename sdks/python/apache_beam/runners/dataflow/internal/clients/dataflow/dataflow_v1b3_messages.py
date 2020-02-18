@@ -192,6 +192,12 @@ class AutoscalingSettings(_messages.Message):
   maxNumWorkers = _messages.IntegerField(2, variant=_messages.Variant.INT32)
 
 
+class SdkHarnessContainerImage(_messages.Message):
+
+  containerImage = _messages.StringField(1)
+  useSingleCorePerContainer = _messages.BooleanField(2)
+
+
 class BigQueryIODetails(_messages.Message):
   r"""Metadata for a BigQuery connector used by the job.
 
@@ -5656,6 +5662,7 @@ class WorkerPool(_messages.Message):
   teardownPolicy = _messages.EnumField('TeardownPolicyValueValuesEnum', 19)
   workerHarnessContainerImage = _messages.StringField(20)
   zone = _messages.StringField(21)
+  sdkHarnessContainerImages = _messages.MessageField('SdkHarnessContainerImage', 22, repeated=True)
 
 
 class WorkerSettings(_messages.Message):
